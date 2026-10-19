@@ -72,18 +72,48 @@ function exampleHead(h) { return h?.level===4 && /^(?:\*\*)?(?:プログラム�
 function minMeaningful(s) {
   return cleanText(s, 1800).replace(/\s+/g,' ').trim();
 }
+// Keep source Markdown structure (tables, emphasis, lists) for notebook export.
+// Untrusted HTML and remote images are not copied as active content.
+function safeInstructionMarkdown(input) {
+  let s=String(input);
+  s=s.replace(/<(script|style|iframe|object|svg|form)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,'[安全のため省略した埋め込み要素]');
+  s=s.replace(/!\[([^\]]*)\]\((?:data:|https?:|attachment:)[\s\S]*?\)/gi, (_,alt)=>`[図・画像${alt?`：${alt}`:''}（元教材を参照）]`);
+  s=s.replace(/<img\b[^>]*>/gi,'[図・画像（元教材を参照）]');
+  s=s.replace(/<br\s*\/?\s*>/gi,'\n').replace(/<\/p\s*>/gi,'\n\n').replace(/<p\b[^>]*>/gi,'');
+  s=s.replace(/<strong\b[^>]*>/gi,'**').replace(/<\/strong\s*>/gi,'**');
+  s=s.replace(/<em\b[^>]*>/gi,'*').replace(/<\/em\s*>/gi,'*');
+  s=s.replace(/<font\b[^>]*>/gi,'').replace(/<\/font\s*>/gi,'');
+  s=s.replace(/<\/?(?:span|div|summary|details)\b[^>]*>/gi,'');
+  s=s.replace(/<[^>]*>/g, tag=>tag.replace(/</g,'&lt;').replace(/>/g,'&gt;'));
+  s=s.replace(/\]\(\s*(?:javascript|data|vbscript)\s*:/gi,'](unsafe-link:');
+  return s.replace(/\r/g,'').trim();
+}
+function separateInstruction(source) {
+  const references=[];
+  const withoutDetails=String(source).replace(/<details\b[^>]*>[\s\S]*?<\/details\s*>/gi, section=>{
+    const match=section.match(/<summary\b[^>]*>([\s\S]*?)<\/summary\s*>/i);
+    const label=(match?.[1]||'補足').replace(/<[^>]*>/g,'').trim();
+    const kind=/解答例|回答例|模範/.test(label)?'解答例':/ヒント/.test(label)?'ヒント':'解説・参考';
+    const rest=section.replace(/<summary\b[^>]*>[\s\S]*?<\/summary\s*>/i,'').replace(/<\/?details\b[^>]*>/gi,'');
+    const content=safeInstructionMarkdown(rest);
+    if(content) references.push({kind,label,content});
+    return '';
+  });
+  return {text:safeInstructionMarkdown(withoutDetails),references};
+}
 function instructionsFor(activity, rows) {
-  const parts=[];
+  const main=[],supplement=[],references=[];
   for (const i of activity.instructionIndices) {
-    const s=rows[i]?.text || '';
-    if (/^\s*---\s*$/.test(s) || s.includes('＜入力＞')) continue;
-    let clean=cleanText(s,1000);
-    if (!clean || clean.startsWith('####')) continue;
-    if (clean.startsWith('---')) clean=clean.replace(/^---\s*/, '');
-    if (clean) parts.push(clean);
-    if (parts.join('\n\n').length>1100) break;
+    const s=rows[i]?.text||'';
+    if (/^\s*---\s*$/.test(s) || s.includes('＜入力＞'))continue;
+    const part=separateInstruction(s);
+    references.push(...part.references.map(r=>({...r,sourceIndex:i})));
+    if(!part.text || /^\s*####\s*$/.test(part.text))continue;
+    // The first non-example instruction is the main task; subsequent cells are preserved separately.
+    const item={text:part.text,sourceIndex:i};
+    if(!main.length)main.push(item);else supplement.push(item);
   }
-  return parts.join('\n\n').slice(0,1350);
+  return {main:main.map(x=>x.text).join('\n\n'),supplement,references};
 }
 export function parseStructure(notebook) {
   if (structureCache.has(notebook)) return structureCache.get(notebook);
@@ -130,7 +160,7 @@ export function parseStructure(notebook) {
     if (row.type==='markdown') current.instructionIndices.push(row.index);
   }
   if (slot) slot.openEnd=true;
-  for (const a of activities) a.instruction=instructionsFor(a,rows);
+  for (const a of activities) {const ins=instructionsFor(a,rows);a.instruction=ins.main;a.instructionSections=ins;}
   const result={rows,activities}; structureCache.set(notebook,result);return result;
 }
 function keyNormalized(text) {
@@ -262,7 +292,24 @@ function annotateInput(input, student, reference, alignment) {
     if(rows.length && hasChange)status='変更検出';
     else if(rows.length && !hasChange)status='初期状態と同じ';
   }
+  // A status of "changed" is not equivalent to a complete answer.
+  const codeCount=rows.filter(r=>r.type==='code').length;
+  const outputState=codeCount ? (hasOutputs?'保存済み結果あり':'実行結果未保存（実行の有無は不明）') : '対象外';
+  const blankItems=[];let filledItems=0;
+  for (const r of rows.filter(x=>x.type==='markdown')) {
+    const lines=r.text.split(/\r?\n/);
+    for(let i=0;i<lines.length;i++) {
+      const m=lines[i].match(/^\s*(?:[-*]\s*)?(?:\d+[.．]\s*)?([^\n：:]{2,95})[：:]\s*(.*)$/);
+      if(!m)continue;
+      let answer=m[2].trim();
+      if(!answer){const next=lines[i+1]?.trim()||'';if(next && !/^\s*(?:[-*]\s*)?[^：:]{2,95}[：:]/.test(next))answer=next;}
+      if(answer)filledItems++;else blankItems.push(m[1].trim());
+    }
+  }
+  const evidenceState=blankItems.length && filledItems ? '一部に空欄候補あり' : blankItems.length ? '空欄候補あり' :
+      (status==='回答未検出'?'回答未検出':'回答候補あり（完了判定ではありません）');
   return {...input, sourceIndices:indices, status, hasChange, hasSavedOutputs:hasOutputs,
+    evidenceState, blankItems, outputState,
     sourceCells:rows.map(r=>({index:r.index,id:r.id,type:r.type,text:r.text,outputs:outputSummary(r.cell)}))};
 }
 function guessActivityForIndex(idx, activities) {
@@ -307,7 +354,10 @@ export function analyzeNotebook(rawStudent, rawReference=null, path='submission.
   for(const a of activities)for(const slot of a.inputs)for(const i of slot.sourceIndices)covered.add(i);
   for(const a of activities) {
     const refActivity=reference?.activities.find(x=>x.id===a.id);
-    if(refActivity && alignment) a.instruction=refActivity.instruction || a.instruction;
+    if(refActivity && alignment){
+      a.instruction=refActivity.instruction || a.instruction;
+      a.instructionSections=refActivity.instructionSections || a.instructionSections;
+    }
     a.inputs=a.inputs.map(s=>annotateInput(s,student,alignment?reference:null,alignment));
     a.extras=[];
   }
@@ -337,7 +387,7 @@ export function analyzeNotebook(rawStudent, rawReference=null, path='submission.
     const indices=alignment.pairs.filter(p=>p.ref>=refActivity.startIndex && p.ref<refActivity.endIndex).map(p=>p.sub).sort((a,b)=>a-b);
     if(!indices.length)continue;
     const recovered={...refActivity,startIndex:Math.min(...indices),endIndex:Math.max(...indices)+1,
-      instruction:refActivity.instruction,recovered:true,inputs:[],extras:[]};
+      instruction:refActivity.instruction,instructionSections:refActivity.instructionSections,recovered:true,inputs:[],extras:[]};
     for(const s of refActivity.inputs) {
       const found=s.sourceIndices.map(idx=>alignment.refToSub.get(idx)).filter(i=>i!==undefined);
       if(found.length) recovered.inputs.push(annotateInput({...s,sourceIndices:found,recovered:true},student,reference,alignment));
@@ -345,9 +395,22 @@ export function analyzeNotebook(rawStudent, rawReference=null, path='submission.
     activities.push(recovered);warnings.push(`活動 ${refActivity.id} は見出しを照合できず、対応セルから復元しました。`);
   }
   activities.sort((a,b)=>a.startIndex-b.startIndex);
+  const missingReference=[];
+  if(alignment){
+    const pairs=alignment.pairs.slice().sort((a,b)=>a.ref-b.ref);
+    for (const idx of alignment.unmatchedRef) {
+      const r=reference.rows[idx];
+      const owner=reference.activities.find(a=>idx>a.startIndex && idx<a.endIndex);
+      const prev=[...pairs].reverse().find(p=>p.ref<idx);
+      const next=pairs.find(p=>p.ref>idx);
+      const strong=!!(prev&&next&&next.sub>prev.sub&&next.sub-prev.sub<=2 && next.ref-prev.ref>1);
+      missingReference.push({index:idx,id:r.id,type:r.type,preview:cleanText(r.text,350),
+        activityId:owner?.id||null,kind:strong?'削除の可能性が高い':'削除・対応不明（要確認）'});
+    }
+  }
   const sourceFile=String(path).replace(/\\/g,'/');
   return {path:sourceFile,name:sourceFile.split('/').pop(),mode:alignment?'正本あり':'正本なし',
     compatibility,warnings,activities,extras,
-    cellCount:student.rows.length,unmatchedCount:alignment?alignment.unmatchedSub.length:null,
+    missingReference,cellCount:student.rows.length,unmatchedCount:alignment?alignment.unmatchedSub.length:null,
     studentNotebook:rawStudent};
 }
