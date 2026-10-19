@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="生徒のNotebookから活動・成果物を抽出するローカル採点支援ツール">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>活動・成果物抽出 | Notebook採点支援</title>
+  <link rel="stylesheet" href="./src/style.css">
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <header class="top"><div class="top-inner"><div class="brand"><span class="brand-icon">N</span><div><strong>Notebook 活動・成果物抽出</strong><small>高校授業の採点支援 / MVP v0.1</small></div></div><span class="private">◉ ブラウザ内だけで解析</span></div></header>
+  <main class="layout">
+    <section class="intro"><p class="eyebrow">NOTEBOOK ASSESSMENT WORKSPACE</p><h1>生徒の作業だけを、見やすく。</h1><p>説明やサンプルコードに埋もれた回答を活動ごとに整理します。コードは実行せず、ファイルはサーバーへ送信しません。</p></section>
+    <section class="panel inputs" aria-labelledby="upload-title">
+      <div class="section-heading"><span class="step">01</span><div><h2 id="upload-title">Notebookを読み込む</h2><p>生徒の提出物を選び、必要なら編集前の正本も指定します。</p></div></div>
+      <div class="upload-grid">
+        <div class="file-card"><label class="main-label" for="submission">生徒の提出物 <span class="required">必須</span></label>
+          <div class="toggle" role="group" aria-label="提出形式"><button id="singleMode" class="on" type="button" aria-pressed="true">単一ファイル</button><button id="folderMode" type="button" aria-pressed="false">フォルダ一括</button></div>
+          <input id="submission" type="file" accept=".ipynb,application/x-ipynb+json">
+          <input id="folderInput" type="file" webkitdirectory multiple hidden>
+          <p class="helper" id="submissionHint">.ipynbを1件選択してください。</p></div>
+        <div class="file-card"><label class="main-label" for="reference">編集前の正本 <span class="optional">任意</span></label>
+          <input id="reference" type="file" accept=".ipynb,application/x-ipynb+json">
+          <p class="helper">登録すると変更・追加・削除セルも照合します。未登録なら活動構造から抽出します。</p></div>
+      </div>
+      <div class="actionbar"><label class="name-label" for="identityRule">生徒識別 <select id="identityRule"><option value="prefix">ファイル名先頭の数字</option><option value="filename">ファイル名</option><option value="folder">親フォルダ名</option><option value="manual">手動（ファイル名を初期表示）</option></select></label><button type="button" id="run" class="primary">活動・成果物を抽出する <span aria-hidden="true">→</span></button></div>
+      <p id="progress" class="progress" role="status" aria-live="polite"></p>
+    </section>
+    <section id="results" class="panel results" hidden aria-labelledby="result-title">
+      <div class="section-heading result-heading"><span class="step">02</span><div><h2 id="result-title">抽出結果</h2><p id="summary"></p></div><button id="download" class="secondary" type="button">採点用 .ipynb をダウンロード</button></div>
+      <div class="toolbar"><div class="toggle" role="group" aria-label="結果の表示方法"><button id="byStudent" class="on" type="button" aria-pressed="true">生徒別</button><button id="byActivity" type="button" aria-pressed="false">活動別</button></div><label class="filter" for="search">検索 <input id="search" type="search" placeholder="生徒名・活動名・回答内容"></label></div>
+      <div id="alerts" class="alerts"></div><div id="resultList" class="result-list"></div>
+    </section>
+    <footer><p>学習活動の自動分類には誤りが生じることがあります。採点前に内容と元のNotebookをご確認ください。</p><p><a href="./docs/SPEC.md" target="_blank" rel="noopener">仕様書（Markdown）</a> · ローカル処理 · オープンな静的Webアプリ</p></footer>
+  </main>
+</body>
+</html>
