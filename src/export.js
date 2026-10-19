@@ -33,7 +33,7 @@ export function makeReportNotebook(result){
   const cells=[];let seq=0;
   const add=(s,attach)=>cells.push(md(s,sid(++seq),Object.keys(attach||{}).length?attach:undefined));
   const title=result.studentNotebook.cells?.[0] ? clipped(sourceText(result.studentNotebook.cells[0]),140) : '';
-  add(`# 活動・成果物抽出レポート\n\n- 提出元: ${safeInline(result.path)}\n- 識別名: ${safeInline(result.displayName||result.name)}\n- 解析: ${result.mode}\n- 元のタイトル: ${safeInline(title.replace(/^#+\s*/,''))}\n- **注意**: 自動抽出は採点結果ではありません。要確認箇所を元のNotebookと照らして確認してください。`);
+  add(`# 活動・成果物抽出レポート\n\n- 提出元: ${safeInline(result.path)}\n- 元ファイル名: ${safeInline(result.name)}\n- 解析: ${result.mode}\n- 元のタイトル: ${safeInline(title.replace(/^#+\s*/,''))}\n- **注意**: 自動抽出は採点結果ではありません。要確認箇所を元のNotebookと照らして確認してください。`);
   if(result.warnings.length)add(`## 確認事項\n\n${result.warnings.map(w=>'- '+safeInline(w)).join('\n')}`);
   add(`## 活動一覧\n\n${result.activities.map(a=>`- ${safeInline(a.id)} ${safeInline(a.label)}：${safeInline(a.title)}（入力欄 ${a.inputs.length}件）`).join('\n')||'活動は検出されませんでした。'}`);
   for(const a of result.activities){
@@ -75,18 +75,37 @@ export function makeReportNotebook(result){
   }
   return {cells,metadata:{kernelspec:result.studentNotebook.metadata?.kernelspec||{display_name:'Python 3',language:'python',name:'python3'},
     language_info:result.studentNotebook.metadata?.language_info||{name:'python'},
-    activity_extractor:{schema_version:'0.1.0',source_path:result.path,mode:result.mode}},nbformat:4,nbformat_minor:5};
+    activity_extractor:{schema_version:'0.2.0',source_path:result.path,mode:result.mode}},nbformat:4,nbformat_minor:5};
 }
 export function serializeReport(result){return JSON.stringify(makeReportNotebook(result),null,1)+'\n';}
-export function safeFileName(name){return String(name).replace(/[\\/\0\r\n:*?"<>|]/g,'_').replace(/^\.+/,'_').slice(0,90)||'submission';}
+/** Preserve original path components; reject unsafe archive paths. */
+export function safeZipEntryPath(path) {
+  if(typeof path!=='string' || !path || path.startsWith('/') || path.startsWith('\\') || /^[A-Za-z]:[\\/]/.test(path))
+    throw new Error('不正なファイルパスです。');
+  const parts=path.replace(/\\/g,'/').split('/');
+  if(parts.some(s=>!s || s==='.' || s==='..' || /[\x00-\x1f\x7f]/.test(s)))
+    throw new Error('不正なフォルダ名またはファイル名があります。');
+  return parts.join('/');
+}
+/** Add only the suffix to the original filename; preserve all directories. */
+export function organizedNotebookPath(sourcePath) {
+  const path=safeZipEntryPath(sourcePath);
+  if(!/\.ipynb$/i.test(path))throw new Error('Notebook（.ipynb）を指定してください。');
+  return path.replace(/(\.ipynb)$/i,'_整理済み$1');
+}
 const CRC_TABLE=new Uint32Array(256);
 for(let n=0;n<256;n++) {let c=n;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xEDB88320:0);CRC_TABLE[n]=c>>>0;}
 function crc32(data){let crc=0xFFFFFFFF;for(const byte of data)crc=(crc>>>8)^CRC_TABLE[(crc^byte)&0xff];return (crc^0xFFFFFFFF)>>>0;}
 function set16(v,o,n){v.setUint16(o,n,true);}function set32(v,o,n){v.setUint32(o,n,true);}
 export function createZip(entries){
   const locals=[],central=[];let offset=0;
+  const seen=new Set();
   for(const {name,data} of entries){
-    const filename=encoder.encode(safeFileName(name));const content=typeof data==='string'?encoder.encode(data):data;
+    const relativePath=safeZipEntryPath(name);
+    if(seen.has(relativePath))throw new Error(`出力ファイル名が重複しています：${relativePath}`);
+    seen.add(relativePath);
+    const filename=encoder.encode(relativePath);
+    if(filename.length>65535)throw new Error('ZIP内のファイル名が長すぎます。');const content=typeof data==='string'?encoder.encode(data):data;
     const crc=crc32(content);const h=new Uint8Array(30+filename.length),v=new DataView(h.buffer);
     set32(v,0,0x04034b50);set16(v,4,20);set16(v,6,0x0800);set16(v,8,0);set32(v,14,crc);set32(v,18,content.length);set32(v,22,content.length);set16(v,26,filename.length);h.set(filename,30);
     locals.push(h,content);
@@ -100,4 +119,17 @@ export function createZip(entries){
   const total=offset+centralBytes+footer.length,all=new Uint8Array(total);let p=0;
   for(const ch of [...locals,...central,footer]){all.set(ch,p);p+=ch.length;}
   return all;
+}
+
+/** Single file gives an .ipynb; folder always gives a ZIP, even for one .ipynb. */
+export function buildDownload(results, mode) {
+  if(!Array.isArray(results) || !results.length)throw new Error('出力対象がありません。');
+  if(mode==='single') {
+    if(results.length!==1)throw new Error('単一ファイルモードでは1件だけ出力できます。');
+    const result=results[0];
+    return {name:organizedNotebookPath(result.name),type:'application/x-ipynb+json',data:serializeReport(result)};
+  }
+  if(mode!=='folder')throw new Error('出力モードが不正です。');
+  const entries=results.map(result=>({name:organizedNotebookPath(result.path),data:serializeReport(result)}));
+  return {name:'整理済みNotebook一式.zip',type:'application/zip',data:createZip(entries)};
 }
