@@ -10,9 +10,8 @@
   <script type="module" src="./src/app.js"></script>
 </head>
 <body>
-  <header class="top"><div class="top-inner"><div class="brand"><span class="brand-icon">N</span><div><strong>Notebook 活動・成果物抽出</strong><small>高校授業の採点支援 / MVP v0.1</small></div></div><span class="private">◉ ブラウザ内だけで解析</span></div></header>
+  <header class="top"><div class="top-inner"><div class="brand"><strong>Notebook 活動・成果物抽出</strong></div><nav aria-label="案内"><a class="help-link" href="./help.html">使い方・HELP</a></nav></div></header>
   <main class="layout">
-    <section class="intro"><p class="eyebrow">NOTEBOOK ASSESSMENT WORKSPACE</p><h1>生徒の作業だけを、見やすく。</h1><p>説明やサンプルコードに埋もれた回答を活動ごとに整理します。コードは実行せず、ファイルはサーバーへ送信しません。</p></section>
     <section class="panel inputs" aria-labelledby="upload-title">
       <div class="section-heading"><span class="step">01</span><div><h2 id="upload-title">Notebookを読み込む</h2><p>生徒の提出物を選び、必要なら編集前の正本も指定します。</p></div></div>
       <div class="upload-grid">
@@ -25,6 +24,8 @@
           <input id="reference" type="file" accept=".ipynb,application/x-ipynb+json">
           <p class="helper">登録すると変更・追加・削除セルも照合します。未登録なら活動構造から抽出します。</p></div>
       </div>
+      <p class="privacy-note">選択したファイルは、このページのJavaScriptが利用者の端末上で処理します。ファイル内容を外部サーバーへ送信する機能はありません。なお、ページ表示に必要なファイルはGitHub Pagesから取得します。</p>
+      <details class="quick-help"><summary>操作手順を確認する</summary><ol><li>提出物を1件、または提出フォルダごと選択します。</li><li>正本がある場合は「編集前の正本」に指定します（任意）。</li><li>生徒識別方法を選んで「活動・成果物を抽出する」を押します。</li><li>結果を生徒別・活動別に確認し、採点用Notebookを保存します。</li></ol><a href="./help.html">詳しい使い方・エラー時の対処</a></details>
       <div class="actionbar"><label class="name-label" for="identityRule">生徒識別 <select id="identityRule"><option value="prefix">ファイル名先頭の数字</option><option value="filename">ファイル名</option><option value="folder">親フォルダ名</option><option value="manual">手動（ファイル名を初期表示）</option></select></label><button type="button" id="run" class="primary">活動・成果物を抽出する <span aria-hidden="true">→</span></button></div>
       <p id="progress" class="progress" role="status" aria-live="polite"></p>
     </section>
@@ -33,7 +34,7 @@
       <div class="toolbar"><div class="toggle" role="group" aria-label="結果の表示方法"><button id="byStudent" class="on" type="button" aria-pressed="true">生徒別</button><button id="byActivity" type="button" aria-pressed="false">活動別</button></div><label class="filter" for="search">検索 <input id="search" type="search" placeholder="生徒名・活動名・回答内容"></label></div>
       <div id="alerts" class="alerts"></div><div id="resultList" class="result-list"></div>
     </section>
-    <footer><p>学習活動の自動分類には誤りが生じることがあります。採点前に内容と元のNotebookをご確認ください。</p><p><a href="./docs/SPEC.md" target="_blank" rel="noopener">仕様書（Markdown）</a> · ローカル処理 · オープンな静的Webアプリ</p></footer>
+    <footer><p>活動の分類結果は採点前に確認してください。<a href="./help.html">使い方・HELP</a> · <a href="./docs/SPEC.md" target="_blank" rel="noopener">仕様書</a></p></footer>
   </main>
 </body>
 </html>
