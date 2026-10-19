@@ -63,3 +63,8 @@ test('source object untouched and no identifier rule shown in user interface',()
  assert(!html.includes('identityRule'));
  assert(html.includes('ファイル別'));
 });
+
+test('rejects arbitrary attachments from output-name conversion',()=>{
+ assert.throws(()=>organizedNotebookPath('提出物/図表.png'));
+ assert.throws(()=>organizedNotebookPath('提出物/資料.csv'));
+});
