@@ -27,43 +27,86 @@ function attachOutputs(outputs,index,attachments){
   }
   return lines.join('\n\n');
 }
-function detailsForCell(c){return `**元セル ${c.index+1}（${safeInline(c.id||'IDなし')}）・${c.type}**` +
+function detailsForCell(c){return `**提出Notebook：セル ${c.index+1}（ID: ${safeInline(c.id||'なし')}）・${c.type}**` +
   `\n\n${snippet(c)}`;}
+function assessmentActivity(a){return a.inputs.length>0 || (a.extras||[]).length>0;}
+function summaryTable(activities) {
+  const rows=['| 活動 | 記入・変更 | 保存済み実行結果 | 確認 |','| --- | --- | --- | --- |'];
+  for(const a of activities.filter(assessmentActivity)) {
+    const states=a.inputs.map(s=>s.status);
+    const change=states.includes('変更検出')?'変更検出':states.includes('回答未検出')?'回答未検出':
+      states.includes('記入候補')?'記入候補':states.length?'初期状態と同じ':'追加セルのみ';
+    const missing=a.inputs.flatMap(s=>s.blankItems||[]);
+    const out=a.inputs.some(s=>s.outputState==='保存済み結果あり')?'保存済みあり':
+      a.inputs.some(s=>s.outputState?.startsWith('実行結果未保存'))?'未保存（実行状況不明）':'対象外';
+    const caution=[missing.length?'空欄候補 '+missing.length+'件':null,a.recovered?'活動を復元':null].filter(Boolean).join('、')||'—';
+    rows.push(`| ${safeInline(a.id+' '+a.title).replace(/\|/g,'\\|')} | ${change} | ${out} | ${caution} |`);
+  }
+  return rows.length===2 ? '評価対象の入力欄は見つかりませんでした。' : rows.join('\n');
+}
 export function makeReportNotebook(result){
   const cells=[];let seq=0;
   const add=(s,attach)=>cells.push(md(s,sid(++seq),Object.keys(attach||{}).length?attach:undefined));
   const title=result.studentNotebook.cells?.[0] ? clipped(sourceText(result.studentNotebook.cells[0]),140) : '';
-  add(`# 活動・成果物抽出レポート\n\n- 提出元: ${safeInline(result.path)}\n- 元ファイル名: ${safeInline(result.name)}\n- 解析: ${result.mode}\n- 元のタイトル: ${safeInline(title.replace(/^#+\s*/,''))}\n- **注意**: 自動抽出は採点結果ではありません。要確認箇所を元のNotebookと照らして確認してください。`);
+  add(`# 活動・成果物抽出レポート\n\n- 提出元: ${safeInline(result.path)}\n- 解析: ${result.mode}\n- 元のタイトル: ${safeInline(title.replace(/^#+\s*/,''))}\n- **注意**: 自動抽出は採点・完了判定ではありません。空欄や未保存の表示は元Notebookで確認してください。`);
   if(result.warnings.length)add(`## 確認事項\n\n${result.warnings.map(w=>'- '+safeInline(w)).join('\n')}`);
-  add(`## 活動一覧\n\n${result.activities.map(a=>`- ${safeInline(a.id)} ${safeInline(a.label)}：${safeInline(a.title)}（入力欄 ${a.inputs.length}件）`).join('\n')||'活動は検出されませんでした。'}`);
-  for(const a of result.activities){
-    add(`## ${safeInline(a.id)} ${safeInline(a.label)}：${safeInline(a.title)}${a.recovered?'（構造から復元）':''}\n\n**元教材の指示（原文抜粋）**\n\n${asLiteral(a.instruction||'指示文を特定できませんでした。')}`);
+  add(`## 活動別確認一覧\n\n${summaryTable(result.activities)}\n\n「変更検出」は正答・完了を意味しません。実行結果の「未保存」は未実行とは限りません。`);
+  const assessment=result.activities.filter(assessmentActivity);
+  const informational=result.activities.filter(a=>!assessmentActivity(a));
+  for(const a of assessment){
+    const sections=a.instructionSections || {main:a.instruction,supplement:[],references:[]};
+    let head=`## ${safeInline(a.id)} ${safeInline(a.label)}：${safeInline(a.title)}${a.recovered?'（構造から復元）':''}`;
+    if(sections.main)head+=`\n\n### 活動の指示（元教材）\n\n${sections.main}`;
+    else head+='\n\n指示文を特定できませんでした。';
+    add(head);
     for(const slot of a.inputs){
       const attach={};const lines=[];
-      lines.push(`### ${safeInline(slot.label)}\n\n判定：**${safeInline(slot.status)}**${slot.recovered?'（元の入力欄を復元）':''}`);
+      lines.push(`### ${safeInline(slot.label)}\n\n- 変更：**${safeInline(slot.status)}**${slot.recovered?'（入力欄を復元）':''}\n- 記入の目安：${safeInline(slot.evidenceState||'判定対象外')}\n- 実行結果：${safeInline(slot.outputState||'対象外')}`);
+      if(slot.blankItems?.length)lines.push(`**空欄候補**：${slot.blankItems.map(safeInline).join('、')}（自動判定のため確認が必要）`);
       if(!slot.sourceCells.length)lines.push('記入用セルが検出されませんでした。');
       for(const c of slot.sourceCells){
         lines.push(detailsForCell(c));
         if(c.outputs.length)lines.push('**保存済み実行結果**\n\n'+attachOutputs(c.outputs,c.index,attach));
-        else if(c.type==='code')lines.push('保存済み実行結果なし');
+        else if(c.type==='code')lines.push('保存済み実行結果なし（実行したかどうかは不明）');
       }
       add(lines.join('\n\n'),attach);
     }
+    const extras=result.extras.filter(x=>x.activityId===a.id);
+    if(extras.length)add(`### 指定入力欄以外の変更・追加セル\n\n${extras.map(x=>`- 提出セル ${x.index+1}：${safeInline(x.reason)}`).join('\n')}\n\n詳細は後半の「その他の変更・要確認」を参照してください。`);
   }
-  if(result.extras.length){
-    add('## 指定入力欄以外の変更・追加セル（補助確認）');
+  if(informational.length){
+    add(`## 入力欄のない活動（参考）\n\n${informational.map(a=>'- '+safeInline(a.id+' '+a.label+'：'+a.title)).join('\n')}\n\n採点用の通常表示からは省き、元Notebookのコードは再実行用として保持しています。`);
+  }
+  const related=result.missingReference||[];
+  if(result.extras.length||related.length){
+    add('## その他の変更・要確認\n\n入力欄の外にあった変更や、正本との対応を確認できなかったセルです。削除候補は削除が確定したことを意味しません。');
     for(const x of result.extras){
-      const attach={};let s=`### ${x.kind}：セル ${x.index+1}\n\n所属：${safeInline(x.activityId||'未分類')}\n\n理由：${safeInline(x.reason)}\n\n${detailsForCell(x)}`;
-      if(x.outputs.length)s+='\n\n**保存済み実行結果**\n\n'+attachOutputs(x.outputs,x.index,attach);
-      add(s,attach);
+      const attach={};let ss=`### ${safeInline(x.kind)}：提出セル ${x.index+1}\n\n所属活動：${safeInline(x.activityId||'未分類')}\n\n理由：${safeInline(x.reason)}\n\n${detailsForCell(x)}`;
+      if(x.outputs.length)ss+='\n\n**保存済み実行結果**\n\n'+attachOutputs(x.outputs,x.index,attach);
+      add(ss,attach);
+    }
+    if(related.length){
+      add(`### 正本側で対応が見つからなかったセル（${related.length}件）\n\n`+related.map(x=>`- **正本セル ${x.index+1}**（ID: ${safeInline(x.id||'なし')}、活動 ${safeInline(x.activityId||'未分類')}）：${safeInline(x.kind)}${x.preview?'／'+safeInline(x.preview.slice(0,90)):''}`).join('\n'));
     }
   }
-  add('## 再実行用コード（原文順）\n\n以下は提出されたNotebookのコードセルを**元の順序**で保持したものです。Notebookの見た目を整理するため、ソースを折りたたむメタデータを設定しています。Colab等で表示状態は異なります。\n\n**注意：** このNotebookで「すべて実行」を行う前に、コード内容・依存ライブラリ・外部ファイル・実行順序を確認してください。ブラウザ側でこれらのコードは実行していません。');
-  for(const [i,c] of result.studentNotebook.cells.entries()) {
+  const supplements=[];
+  for(const a of result.activities){
+    const ins=a.instructionSections;
+    if(!ins?.supplement?.length && !ins?.references?.length)continue;
+    let section=`### ${safeInline(a.id)} ${safeInline(a.title)}`;
+    for(const extra of (ins.supplement||[]))section+=`\n\n**補足説明（元教材セル ${extra.sourceIndex+1}）**\n\n${extra.text}`;
+    for(const ref of (ins.references||[]))section+=`\n\n**${safeInline(ref.kind)}：${safeInline(ref.label)}（元教材セル ${ref.sourceIndex+1}）**\n\n${ref.content}`;
+    supplements.push(section);
+  }
+  if(supplements.length){
+    add('## 元教材の補足説明・解答例（参照用）\n\n採点時に必要な場合だけ、この章を参照してください。以下は生徒の回答ではありません。');
+    for(const txt of supplements)add(txt);
+  }
+  add('## 再実行用コード（提出Notebookの順序）\n\n以下は提出されたNotebookのコードセルを元の順序で保持したものです。ソースを折りたたむ設定を付けていますが、Colab等での表示状態は異なります。\n\n**注意：** 「すべて実行」の前にコード内容・ライブラリ・外部ファイル・実行順序を確認してください。アプリ内で提出コードは実行していません。');
+  for(const [i,c] of result.studentNotebook.cells.entries()){
     if(c.cell_type!=='code')continue;
     const copied=JSON.parse(JSON.stringify(c));
     copied.id=sid(++seq);
-    // Do not forward active HTML/JavaScript/SVG outputs into an exported grading notebook.
     copied.outputs=(copied.outputs||[]).map(o=>{
       if(!o?.data)return o;
       o.data=Object.fromEntries(Object.entries(o.data).filter(([type])=>
@@ -75,23 +118,31 @@ export function makeReportNotebook(result){
   }
   return {cells,metadata:{kernelspec:result.studentNotebook.metadata?.kernelspec||{display_name:'Python 3',language:'python',name:'python3'},
     language_info:result.studentNotebook.metadata?.language_info||{name:'python'},
-    activity_extractor:{schema_version:'0.2.0',source_path:result.path,mode:result.mode}},nbformat:4,nbformat_minor:5};
+    activity_extractor:{schema_version:'0.3.0',source_path:result.path,mode:result.mode}},nbformat:4,nbformat_minor:5};
 }
 export function serializeReport(result){return JSON.stringify(makeReportNotebook(result),null,1)+'\n';}
-/** Preserve original path components; reject unsafe archive paths. */
-export function safeZipEntryPath(path) {
-  if(typeof path!=='string' || !path || path.startsWith('/') || path.startsWith('\\') || /^[A-Za-z]:[\\/]/.test(path))
-    throw new Error('不正なファイルパスです。');
-  const parts=path.replace(/\\/g,'/').split('/');
-  if(parts.some(s=>!s || s==='.' || s==='..' || /[\x00-\x1f\x7f]/.test(s)))
-    throw new Error('不正なフォルダ名またはファイル名があります。');
-  return parts.join('/');
+export function safeFileName(name){return String(name).replace(/[\\/\0\r\n:*?"<>|]/g,'_').replace(/^\.+/,'_').slice(0,90)||'submission';}
+export function safeZipPath(name){
+  const parts=String(name).replace(/\\/g,'/').split('/');
+  if(parts.some(p=>!p||p==='.'||p==='..'||/[\x00-\x1f]/.test(p)))throw Error('不正な出力パスを検出しました。');
+  return parts.map(safeFileName).join('/');
 }
-/** Add only the suffix to the original filename; preserve all directories. */
-export function organizedNotebookPath(sourcePath) {
-  const path=safeZipEntryPath(sourcePath);
-  if(!/\.ipynb$/i.test(path))throw new Error('Notebook（.ipynb）を指定してください。');
-  return path.replace(/(\.ipynb)$/i,'_整理済み$1');
+export function buildDownload(results,uploadMode='single'){
+  if(!results.length)throw Error('出力するNotebookがありません。');
+  const seen=new Set(),entries=[];
+  for(const r of results){
+    const components=String(r.path).replace(/\\/g,'/').split('/');
+    const last=components.pop();
+    const renamed=last.replace(/\.ipynb$/i,'')+'_整理済み.ipynb';
+    const path=safeZipPath([...components,renamed].join('/'));
+    if(seen.has(path))throw Error('同名の提出物があります：'+path);
+    seen.add(path);
+    entries.push({name:path,data:serializeReport(r)});
+  }
+  if(uploadMode==='single' && entries.length===1){
+    return {name:entries[0].name.split('/').pop(),type:'application/x-ipynb+json',data:entries[0].data};
+  }
+  return {name:'整理済みNotebook一式.zip',type:'application/zip',data:createZip(entries)};
 }
 const CRC_TABLE=new Uint32Array(256);
 for(let n=0;n<256;n++) {let c=n;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xEDB88320:0);CRC_TABLE[n]=c>>>0;}
@@ -99,13 +150,8 @@ function crc32(data){let crc=0xFFFFFFFF;for(const byte of data)crc=(crc>>>8)^CRC
 function set16(v,o,n){v.setUint16(o,n,true);}function set32(v,o,n){v.setUint32(o,n,true);}
 export function createZip(entries){
   const locals=[],central=[];let offset=0;
-  const seen=new Set();
   for(const {name,data} of entries){
-    const relativePath=safeZipEntryPath(name);
-    if(seen.has(relativePath))throw new Error(`出力ファイル名が重複しています：${relativePath}`);
-    seen.add(relativePath);
-    const filename=encoder.encode(relativePath);
-    if(filename.length>65535)throw new Error('ZIP内のファイル名が長すぎます。');const content=typeof data==='string'?encoder.encode(data):data;
+    const filename=encoder.encode(safeZipPath(name));const content=typeof data==='string'?encoder.encode(data):data;
     const crc=crc32(content);const h=new Uint8Array(30+filename.length),v=new DataView(h.buffer);
     set32(v,0,0x04034b50);set16(v,4,20);set16(v,6,0x0800);set16(v,8,0);set32(v,14,crc);set32(v,18,content.length);set32(v,22,content.length);set16(v,26,filename.length);h.set(filename,30);
     locals.push(h,content);
@@ -119,17 +165,4 @@ export function createZip(entries){
   const total=offset+centralBytes+footer.length,all=new Uint8Array(total);let p=0;
   for(const ch of [...locals,...central,footer]){all.set(ch,p);p+=ch.length;}
   return all;
-}
-
-/** Single file gives an .ipynb; folder always gives a ZIP, even for one .ipynb. */
-export function buildDownload(results, mode) {
-  if(!Array.isArray(results) || !results.length)throw new Error('出力対象がありません。');
-  if(mode==='single') {
-    if(results.length!==1)throw new Error('単一ファイルモードでは1件だけ出力できます。');
-    const result=results[0];
-    return {name:organizedNotebookPath(result.name),type:'application/x-ipynb+json',data:serializeReport(result)};
-  }
-  if(mode!=='folder')throw new Error('出力モードが不正です。');
-  const entries=results.map(result=>({name:organizedNotebookPath(result.path),data:serializeReport(result)}));
-  return {name:'整理済みNotebook一式.zip',type:'application/zip',data:createZip(entries)};
 }
