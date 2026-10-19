@@ -1,7 +1,7 @@
 import {validateNotebook, analyzeNotebook} from './core.js';
 import {buildDownload} from './export.js';
 const $=id=>document.getElementById(id);
-let uploadMode='single', displayMode='student', results=[];
+let uploadMode='single', displayMode='student', processedMode='single', results=[];
 const MAX_FILE=35*1024*1024, MAX_TOTAL=160*1024*1024, MAX_COUNT=200;
 function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=String(text);return n;}
 function add(parent,child){parent.appendChild(child);return child;}
@@ -20,7 +20,7 @@ $('run').addEventListener('click',async()=>{
  const files=filesToProcess();
  if(!files.length){status('提出Notebook（.ipynb）を選択してください。',true);return;}
  if(files.length>MAX_COUNT||files.reduce((s,f)=>s+f.size,0)>MAX_TOTAL){status('200件または合計160MBの上限を超えています。',true);return;}
- $('run').disabled=true;results=[];$('results').hidden=true;const errors=[];const referenceFile=$('reference').files[0];
+ $('run').disabled=true;results=[];$('results').hidden=true;const selectedMode=uploadMode;const errors=[];const referenceFile=$('reference').files[0];
  let reference=null;
  try{
    if(referenceFile){status('正本を解析中…');reference=await loadFile(referenceFile);}
@@ -31,7 +31,7 @@ $('run').addEventListener('click',async()=>{
      }catch(e){errors.push(`${file.webkitRelativePath||file.name}：${e.message}`);}
    }
    if(!results.length){status('有効なNotebookがありません。'+errors.join(' / '),true);return;}
-   $('results').hidden=false;
+   processedMode=selectedMode;$('results').hidden=false;
    $('summary').textContent=`${results.length}件のNotebook、${results.reduce((s,r)=>s+r.activities.length,0)}件の活動を解析しました。`;
    $('alerts').replaceChildren();for(const message of errors)add($('alerts'),el('p','alert',message));
    for(const r of results)for(const message of r.warnings)add($('alerts'),el('p','alert',`${r.path}：${message}`));
@@ -100,7 +100,7 @@ function downloadBytes(bytes,name,type){const blob=new Blob([bytes],{type});cons
 $('download').addEventListener('click',()=>{
  if(!results.length)return;
  try{
-  const {name,type,data}=buildDownload(results,uploadMode);
+  const {name,type,data}=buildDownload(results,processedMode);
   downloadBytes(data,name,type);
  }catch(e){status('出力に失敗しました：'+e.message,true);}
 });
