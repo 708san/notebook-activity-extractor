@@ -7,6 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>使い方・HELP | Notebook 活動・成果物抽出</title>
   <link rel="stylesheet" href="./src/style.css">
+  <link rel="stylesheet" href="./src/assessment.css">
 </head>
 <body>
   <header class="top"><div class="top-inner"><div class="brand"><strong>Notebook 活動・成果物抽出</strong></div><nav aria-label="案内"><a class="help-link" href="./index.html">ツールに戻る</a></nav></div></header>
@@ -22,7 +23,7 @@
       <ol>
         <li><strong>提出物を選ぶ：</strong>「単一ファイル」は生徒1人分の <code>.ipynb</code> を選びます。「フォルダ一括」はフォルダ以下の <code>.ipynb</code> をまとめて対象にします（サブフォルダも含む）。</li>
         <li><strong>正本を選ぶ（任意）：</strong>授業で配布した編集前のNotebookがあれば、右側の「編集前の正本」で指定します。</li>
-        <li><strong>名前の設定は不要：</strong>元のファイル名とフォルダ構造を保ち、各ファイル名に「_整理済み」を付けて出力します。</li>
+        <li><strong>名前の設定は不要：</strong>元のファイル名とフォルダ構造は保持され、出力時に各ファイル名へ「_整理済み」が追加されます。</li>
         <li><strong>抽出を実行：</strong>「活動・成果物を抽出する」を押します。処理後、結果が画面下部に表示されます。</li>
         <li><strong>確認・保存：</strong>ファイル別／活動別を切り替え、必要に応じて活動の割り当てを修正してから「整理済みNotebookをダウンロード」を押します。</li>
       </ol>
@@ -41,38 +42,42 @@
     </section>
 
     <section class="panel" id="identity">
-      <h2>3. ファイル名とフォルダ構造</h2>
-      <p><strong>生徒番号や名前の自動抽出設定はありません。</strong> 元のファイル名をそのまま利用します。整理済みと区別できるよう、拡張子 <code>.ipynb</code> の直前に <code>_整理済み</code> を追加します。</p>
-      <table><thead><tr><th>入力</th><th>出力</th></tr></thead><tbody>
-        <tr><td><code>007_授業.ipynb</code>（単一）</td><td><code>007_授業_整理済み.ipynb</code></td></tr>
-        <tr><td><code>提出物/001/授業.ipynb</code>（フォルダ）</td><td>ZIP内 <code>提出物/001/授業_整理済み.ipynb</code></td></tr>
-        <tr><td><code>提出物/002/授業.ipynb</code>（フォルダ）</td><td>ZIP内 <code>提出物/002/授業_整理済み.ipynb</code></td></tr>
+      <h2>3. ファイル名・フォルダ構造の扱い</h2>
+      <p><strong>ファイル名から生徒番号や名前を自動抽出する設定はありません。</strong> 入力された名前をそのまま使用します。整理済みであることが分かるよう、<code>.ipynb</code> の直前に <code>_整理済み</code> を追加します。</p>
+      <table><thead><tr><th>入力</th><th>ダウンロード後</th></tr></thead><tbody>
+        <tr><td>単一：<code>007_授業.ipynb</code></td><td><code>007_授業_整理済み.ipynb</code></td></tr>
+        <tr><td>フォルダ：<code>提出物/001/授業.ipynb</code></td><td><code>整理済みNotebook一式.zip</code> の中の <code>提出物/001/授業_整理済み.ipynb</code></td></tr>
+        <tr><td>フォルダ：<code>提出物/002/授業.ipynb</code></td><td>同じZIP内の <code>提出物/002/授業_整理済み.ipynb</code></td></tr>
       </tbody></table>
-      <p>フォルダ一括モードでは <code>整理済みNotebook一式.zip</code> がダウンロードされます。Notebookが1件でもZIP形式で、選択したフォルダ名とその下の階層を保持します。同じ名前のNotebookでも別のフォルダなら区別できます。</p>
-      <p>ZIPには <code>.ipynb</code> のみを含めます。その他のファイルや空フォルダはコピーしません。元のファイルは書き換えません。</p>
+      <p>選択したフォルダ名と、その下の階層を保ちます。同じ <code>授業.ipynb</code> でも別フォルダなら区別されます。フォルダ内の対象が1件だけでもZIPで保存します。</p>
+      <p><strong>出力対象は <code>.ipynb</code> のみ</strong>です。画像、CSV、その他の添付ファイルや空フォルダはZIPに含めません。元ファイルは変更・削除されません。</p>
     </section>
 
     <section class="panel" id="results">
       <h2>4. 抽出結果の見方</h2>
       <ul>
-        <li><strong>ファイル別：</strong>提出Notebookごとに活動を順に確認します。元のファイル名と相対パスを表示します。</li>
-        <li><strong>活動別：</strong>同じ活動を複数の提出Notebookについて確認します。ファイル名とパスで区別します。</li>
-        <li><strong>活動の指示：</strong>「活動の指示（原文から抽出）」を展開すると、元Notebookから取得した説明を見られます。AIによる要約ではありません。</li>
+        <li><strong>ファイル別：</strong>提出Notebookごとに活動を順に確認します。元ファイル名と相対パスを表示します。</li>
+        <li><strong>活動別：</strong>同じ活動を複数の提出Notebookについて確認します。元ファイル名とパスで区別します。</li>
+        <li><strong>活動の指示：</strong>「活動の指示（元教材の書式を保持）」を展開すると、原文の表・箇条書き・強調などを確認できます。解答例や補足は別の折りたたみ項目に表示します。AIによる要約ではありません。</li>
         <li><strong>入力欄：</strong>記入したMarkdownやコードを表示します。コードセルに保存された出力があれば「保存済みの実行結果を見る」から確認できます。</li>
         <li><strong>その他の変更・追加セル：</strong>別枠で確認できます。プルダウンから活動を割り当て直すこともできます。</li>
         <li><strong>検索：</strong>ファイル名、パス、活動名、回答内容から提出物を絞り込みます。</li>
       </ul>
+      <h3>活動別確認一覧</h3>
+      <p>ファイル別表示の先頭に、活動ごとの「記入・変更」「保存済み実行結果」「空欄候補」を一覧表示します。空欄候補は機械的な検出であり、未実施と断定するものではありません。</p>
+      <h3>正本との照合で確認できないセル</h3>
+      <p>正本のセルに対応が見つからない場合は「正本側の削除・対応不明セル」に表示します。削除と、内容変更による照合失敗の区別には確認が必要です。</p>
       <h3>よくある判定表示</h3>
-      <p>「変更検出」は正本との差が見つかった状態、「回答未検出」は記入の根拠を確認できない状態を表します。<strong>自動採点や正誤判定ではありません。</strong>「未記入」と断定できない場合もあるため、元のNotebookと照らして確認してください。</p>
+      <p>「変更検出」は正本との差が見つかった状態、「回答未検出」は記入の根拠を確認できない状態を表します。「実行結果未保存」は未実行を意味しません。<strong>自動採点や正誤判定ではありません。</strong>「未記入」と断定できない場合もあるため、元のNotebookと照らして確認してください。</p>
     </section>
 
     <section class="panel" id="export">
       <h2>5. ダウンロードされるファイル</h2>
       <ul>
-        <li><strong>単一ファイルモード：</strong><code>元のファイル名_整理済み.ipynb</code> を出力します。</li>
-        <li><strong>フォルダ一括モード：</strong>Notebookが1件でも <code>整理済みNotebook一式.zip</code> を出力します。フォルダ階層は維持し、各Notebook名だけに <code>_整理済み</code> を付けます。</li>
+        <li><strong>単一ファイルモード：</strong><code>元のファイル名_整理済み.ipynb</code> を1件ダウンロードします。</li>
+        <li><strong>フォルダ一括モード：</strong><code>整理済みNotebook一式.zip</code> をダウンロードします。ZIPの中ではフォルダ階層を保ち、各Notebookのファイル名だけに <code>_整理済み</code> を付けます。Notebookが1件でもZIPです。</li>
       </ul>
-      <p>出力Notebookの前半は活動・回答・保存済み出力を整理した採点用の内容です。後半に、提出されたNotebookのコードセルを元の順序で収録します。再実行用コードにはソースを折りたたむための設定を付けますが、表示方法はJupyter／Colabなどによって異なります。</p>
+      <p>出力Notebookの冒頭には活動別確認一覧を配置し、評価対象の活動を先に示します。指示はMarkdown書式を保持し、解答例は後半の参照用セクションに分離します。後半に、提出されたNotebookのコードセルを元の順序で収録します。再実行用コードにはソースを折りたたむための設定を付けますが、表示方法はJupyter／Colabなどによって異なります。</p>
       <p><strong>注意：</strong>このツールはPythonコードを実行しません。出力Notebookを先生が実行すると、そこに含まれるコードが動きます。ライブラリの導入、外部ファイル、変数の状態、対話入力などが必要なケースでは、再実行できないことがあります。実行前に必ずコードを確認してください。</p>
       <p><code>input()</code> で入力した値や、実行後に画面だけに表示された内容は、Notebookに保存されていなければ復元できません。</p>
     </section>
@@ -82,7 +87,7 @@
       <details><summary>「提出Notebookを選択してください」と出る</summary><p>単一ファイル／フォルダ一括の選択が正しいかを確認してください。対象は拡張子 <code>.ipynb</code> のファイルです。フォルダ内にNotebookがなければ抽出できません。</p></details>
       <details><summary>正本ありで比較したのに、正本なしと表示される</summary><p>正本と提出物の授業や構造が一致していない可能性があります。同じ授業の編集前ファイルかを確認してください。見出しやセルを大きく編集している場合は、自動照合に失敗することがあります。</p></details>
       <details><summary>活動や回答が見つからない</summary><p>活動見出し・入力マーカーが元の教材にあるか確認してください。セルを分割・削除・移動した場合、対応が不確かなものは「その他の変更・追加セル」に出る場合があります。正本を追加すると認識が改善することがあります。</p></details>
-      <details><summary>フォルダ選択後の名前が想定と違う</summary><p>出力ZIPの中では元のファイル名とフォルダ名を保持し、Notebookに「_整理済み」を付けます。画面には元ファイルの相対パスを表示します。</p></details>
+      <details><summary>フォルダ内の出力ファイルの名前が想定と違う</summary><p>設定による名前変更は行いません。元のファイル名と相対パスを確認してください。フォルダ選択時は入力フォルダ名からの階層を保ちます。</p></details>
       <details><summary>画像・アプリ表示が出てこない</summary><p>出力がNotebookファイルに保存されていない場合は取得できません。危険なHTMLやJavaScriptを含む出力は、そのまま再表示しない設計です。画像が大きすぎる場合も省略されます。</p></details>
       <details><summary>ファイルが読み込めない／途中で止まる</summary><p>NotebookのJSON形式とサイズを確認してください。現在の上限は1件35MB、合計160MB、200件、1Notebookあたり2,500セルです。大量のファイルや大きな画像がある場合はフォルダを分割して処理してください。</p></details>
       <details><summary>保存したNotebookでプログラムを実行できない</summary><p>元のNotebookで必要だった実行順序、初期化、追加ライブラリ、対話入力、入力ファイルなどを確認してください。採点用Notebookは元の実行環境を完全には再現しません。</p></details>
