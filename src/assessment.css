@@ -1,0 +1,17 @@
+/* Grading view: source-preserving, safe, accessible previews */
+.instruction{line-height:1.7;white-space:normal;overflow-wrap:anywhere}
+.instruction p{margin:7px 0 12px}
+.instruction h4{font-size:14px;line-height:1.5;margin:16px 0 8px}
+.instruction ul,.instruction ol{margin:7px 0 14px;padding-left:26px}
+.instruction li{margin:4px 0}
+.instruction code{background:#edf3f6;border-radius:4px;padding:1px 4px;font-family:ui-monospace,monospace}
+.instruction-table{width:100%;border-collapse:collapse;font-size:12px;line-height:1.6;table-layout:auto;margin:12px 0 18px}
+.instruction-table th,.instruction-table td{padding:9px 10px;border:1px solid #dce5e9;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.instruction-table th{background:#f2f6f7;font-weight:700}
+.instruction-quote{border-left:3px solid #91b0bb;padding:3px 12px;background:#f3f7f8;margin:8px 0 12px}
+.instruction-quote p{margin:4px 0}
+.activity-overview{padding:13px 16px;margin-bottom:20px;border:1px solid #dce5e9;border-radius:9px;background:#fbfdfd}
+.activity-overview summary{font-weight:700;cursor:pointer}
+.activity-overview .instruction-table{margin-top:15px}
+.activity .instruction{margin:11px 0 14px}
+@media(max-width:720px){.instruction-table{display:block;overflow-x:auto;white-space:normal}}
