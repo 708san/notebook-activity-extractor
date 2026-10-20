@@ -15,3 +15,11 @@
 .activity-overview .instruction-table{margin-top:15px}
 .activity .instruction{margin:11px 0 14px}
 @media(max-width:720px){.instruction-table{display:block;overflow-x:auto;white-space:normal}}
+
+/* v0.4: Optional filename suffix and non-destructive preview */
+.filename-settings{margin:18px 0 12px;padding:16px;border:1px solid #dee7eb;border-radius:10px;background:#f8fafb}
+.filename-settings .main-label{display:block;margin-bottom:8px}
+.filename-settings input{width:100%;max-width:340px;padding:10px 12px;border:1px solid #bfcdd2;border-radius:7px;font:inherit;background:#fff}
+.filename-settings .helper{margin:8px 0 0;overflow-wrap:anywhere}
+.filename-settings #filenamePreview{font-weight:600;color:#315966}
+.filename-settings #filenamePreview.error{color:#b42318}
