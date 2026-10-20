@@ -120,7 +120,7 @@ export function makeReportNotebook(result){
   }
   return {cells,metadata:{kernelspec:result.studentNotebook.metadata?.kernelspec||{display_name:'Python 3',language:'python',name:'python3'},
     language_info:result.studentNotebook.metadata?.language_info||{name:'python'},
-    activity_extractor:{schema_version:'0.3.0',source_path:result.path,mode:result.mode}},nbformat:4,nbformat_minor:5};
+    activity_extractor:{schema_version:'0.4.0',source_path:result.path,mode:result.mode}},nbformat:4,nbformat_minor:5};
 }
 export function serializeReport(result){return JSON.stringify(makeReportNotebook(result),null,1)+'\n';}
 export function safeFileName(name){return safeZipEntryPath(name);}
