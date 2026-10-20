@@ -41,19 +41,19 @@ test('v0.3: unmatched reference cell is reported but not asserted as definitely 
  assert(r.missingReference.some(c=>c.id==='deleted-example'));
  assert(r.missingReference.every(c=>/可能性|不明/.test(c.kind)));
  const exported=makeReportNotebook(r).cells.map(sourceText).join('\n');
- assert(exported.includes('正本側で対応が見つからなかったセル'));
+ assert(exported.includes('原本側で対応が見つからなかったセル'));
 });
 test('v0.3: dangerous HTML cannot become active in task description',()=>{
  const d=tiny();d.cells[2].source='<script>alert(1)</script>\n<iframe src="https://evil.example"></iframe>\n説明';
  const r=analyzeNotebook(d);const t=makeReportNotebook(r).cells.map(sourceText).join('\n');
  assert(!t.includes('<script>'));assert(!t.includes('<iframe'));
 });
-test('v0.3: folder hierarchy and _整理済み suffix are preserved',()=>{
+test('v0.3: folder hierarchy and _organized suffix are preserved',()=>{
  const r=analyzeNotebook(tiny(),null,'提出物/001/授業.ipynb');
- const a=buildDownload([r],'single');assert.equal(a.name,'授業_整理済み.ipynb');
- const b=buildDownload([r],'folder');assert.equal(b.name,'整理済みNotebook一式.zip');
+ const a=buildDownload([r],'single');assert.equal(a.name,'授業_organized.ipynb');
+ const b=buildDownload([r],'folder');assert.equal(b.name,'organized_notebooks.zip');
  const signature=Buffer.from(b.data).toString('utf8');
- assert(signature.includes('提出物/001/授業_整理済み.ipynb'));
+ assert(signature.includes('提出物/001/授業_organized.ipynb'));
 });
 test('v0.3: sample lesson structure and output preserved', {skip:!hasReal},()=>{
  const ref=JSON.parse(fs.readFileSync(fixturePath));const stud=JSON.parse(fs.readFileSync(samplePath));
