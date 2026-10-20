@@ -15,7 +15,7 @@ git push -u origin main
 ```
 
 5. リポジトリの **Settings → Pages → Build and deployment → Source** で **Deploy from a branch** を選び、Branchに `main` と `/(root)` を指定して **Save** する。
-6. 表示された Pages のURLへアクセスし、正本なし・正本あり・単体・フォルダ一括とNotebookのダウンロードを確認する。
+6. 表示された Pages のURLへアクセスし、原本なし・原本あり・単体・フォルダ一括とNotebookのダウンロードを確認する。
 7. 今後の改修はブランチで行い、テスト後に `main` へ統合する。公開中URLは変わらない。
 
 **重要:** GitHub Pagesはアプリ自身（HTML/JavaScript）を配信するサービス。処理対象となる生徒のファイルはGitHubにアップロードする必要がなく、提出されたNotebookはブラウザ内だけで処理される。
