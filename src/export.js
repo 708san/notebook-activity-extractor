@@ -1,4 +1,6 @@
 import {sourceText} from './core.js';
+import {organizedNotebookPath, safeZipEntryPath, normalizeOutputSuffix, pathCollisionKey} from './naming.js';
+export {organizedNotebookPath, safeZipEntryPath, normalizeOutputSuffix} from './naming.js';
 const encoder=new TextEncoder();
 function sid(i){return `report-${String(i).padStart(6,'0')}`;}
 function md(source,id,attachments=undefined){return {cell_type:'markdown',id,metadata:{},source, ...(attachments?{attachments}:{})};}
@@ -79,14 +81,14 @@ export function makeReportNotebook(result){
   }
   const related=result.missingReference||[];
   if(result.extras.length||related.length){
-    add('## その他の変更・要確認\n\n入力欄の外にあった変更や、正本との対応を確認できなかったセルです。削除候補は削除が確定したことを意味しません。');
+    add('## その他の変更・要確認\n\n入力欄の外にあった変更や、原本との対応を確認できなかったセルです。削除候補は削除が確定したことを意味しません。');
     for(const x of result.extras){
       const attach={};let ss=`### ${safeInline(x.kind)}：提出セル ${x.index+1}\n\n所属活動：${safeInline(x.activityId||'未分類')}\n\n理由：${safeInline(x.reason)}\n\n${detailsForCell(x)}`;
       if(x.outputs.length)ss+='\n\n**保存済み実行結果**\n\n'+attachOutputs(x.outputs,x.index,attach);
       add(ss,attach);
     }
     if(related.length){
-      add(`### 正本側で対応が見つからなかったセル（${related.length}件）\n\n`+related.map(x=>`- **正本セル ${x.index+1}**（ID: ${safeInline(x.id||'なし')}、活動 ${safeInline(x.activityId||'未分類')}）：${safeInline(x.kind)}${x.preview?'／'+safeInline(x.preview.slice(0,90)):''}`).join('\n'));
+      add(`### 原本側で対応が見つからなかったセル（${related.length}件）\n\n`+related.map(x=>`- **原本セル ${x.index+1}**（ID: ${safeInline(x.id||'なし')}、活動 ${safeInline(x.activityId||'未分類')}）：${safeInline(x.kind)}${x.preview?'／'+safeInline(x.preview.slice(0,90)):''}`).join('\n'));
     }
   }
   const supplements=[];
@@ -121,37 +123,35 @@ export function makeReportNotebook(result){
     activity_extractor:{schema_version:'0.3.0',source_path:result.path,mode:result.mode}},nbformat:4,nbformat_minor:5};
 }
 export function serializeReport(result){return JSON.stringify(makeReportNotebook(result),null,1)+'\n';}
-export function safeFileName(name){return String(name).replace(/[\\/\0\r\n:*?"<>|]/g,'_').replace(/^\.+/,'_').slice(0,90)||'submission';}
-export function safeZipPath(name){
-  const parts=String(name).replace(/\\/g,'/').split('/');
-  if(parts.some(p=>!p||p==='.'||p==='..'||/[\x00-\x1f]/.test(p)))throw Error('不正な出力パスを検出しました。');
-  return parts.map(safeFileName).join('/');
-}
-export function buildDownload(results,uploadMode='single'){
+export function safeFileName(name){return safeZipEntryPath(name);}
+export function safeZipPath(name){return safeZipEntryPath(name);}
+export function buildDownload(results,uploadMode='single',extraSuffix=''){
   if(!results.length)throw Error('出力するNotebookがありません。');
+  const suffix=normalizeOutputSuffix(extraSuffix);
   const seen=new Set(),entries=[];
   for(const r of results){
-    const components=String(r.path).replace(/\\/g,'/').split('/');
-    const last=components.pop();
-    const renamed=last.replace(/\.ipynb$/i,'')+'_整理済み.ipynb';
-    const path=safeZipPath([...components,renamed].join('/'));
-    if(seen.has(path))throw Error('同名の提出物があります：'+path);
-    seen.add(path);
+    const path=organizedNotebookPath(r.path,suffix);
+    const collision=pathCollisionKey(path);
+    if(seen.has(collision))throw Error('OS間で同名になる提出物があります：'+path);
+    seen.add(collision);
     entries.push({name:path,data:serializeReport(r)});
   }
   if(uploadMode==='single' && entries.length===1){
     return {name:entries[0].name.split('/').pop(),type:'application/x-ipynb+json',data:entries[0].data};
   }
-  return {name:'整理済みNotebook一式.zip',type:'application/zip',data:createZip(entries)};
+  return {name:'organized_notebooks.zip',type:'application/zip',data:createZip(entries)};
 }
 const CRC_TABLE=new Uint32Array(256);
 for(let n=0;n<256;n++) {let c=n;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xEDB88320:0);CRC_TABLE[n]=c>>>0;}
 function crc32(data){let crc=0xFFFFFFFF;for(const byte of data)crc=(crc>>>8)^CRC_TABLE[(crc^byte)&0xff];return (crc^0xFFFFFFFF)>>>0;}
 function set16(v,o,n){v.setUint16(o,n,true);}function set32(v,o,n){v.setUint32(o,n,true);}
 export function createZip(entries){
-  const locals=[],central=[];let offset=0;
+  const locals=[],central=[],usedPaths=new Set();let offset=0;
   for(const {name,data} of entries){
-    const filename=encoder.encode(safeZipPath(name));const content=typeof data==='string'?encoder.encode(data):data;
+    const safeName=safeZipEntryPath(name);const key=pathCollisionKey(safeName);
+    if(usedPaths.has(key))throw Error('ZIP内で出力パスが重複します：'+safeName);
+    usedPaths.add(key);
+    const filename=encoder.encode(safeName);const content=typeof data==='string'?encoder.encode(data):data;
     const crc=crc32(content);const h=new Uint8Array(30+filename.length),v=new DataView(h.buffer);
     set32(v,0,0x04034b50);set16(v,4,20);set16(v,6,0x0800);set16(v,8,0);set32(v,14,crc);set32(v,18,content.length);set32(v,22,content.length);set16(v,26,filename.length);h.set(filename,30);
     locals.push(h,content);
