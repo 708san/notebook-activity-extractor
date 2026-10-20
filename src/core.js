@@ -237,7 +237,7 @@ export function alignCells(reference, submission) {
     unmatchedSub:b.filter(x=>!usedB.has(x.index)).map(x=>x.index)};
 }
 export function assessCompatibility(reference, submission, alignment) {
-  if(!reference) return {usable:false,reason:'正本なし'};
+  if(!reference) return {usable:false,reason:'原本なし'};
   const refActivities=new Map(reference.activities.map(a=>[a.id,a]));
   const aMatch=submission.activities.filter(a=>{
     const ref=refActivities.get(a.id);
@@ -249,7 +249,7 @@ export function assessCompatibility(reference, submission, alignment) {
   const sameTitle=sourceText(reference.rows[0]?.cell).trim()===sourceText(submission.rows[0]?.cell).trim();
   const usable=matchRatio>=0.35 || matchCells>=0.18 || (sameTitle && reliable>=3);
   return {usable,activityOverlap:aMatch,activityRatio:matchRatio,cellRatio:matchCells,
-    reason:usable?'正本との共通構造を確認':'正本と提出物の共通構造が不足'};
+    reason:usable?'原本との共通構造を確認':'原本と提出物の共通構造が不足'};
 }
 function hasSavedOutputs(cell) {return !!(Array.isArray(cell?.outputs) && cell.outputs.length);}
 export function outputSummary(cell) {
@@ -344,9 +344,9 @@ export function analyzeNotebook(rawStudent, rawReference=null, path='submission.
   const student=parseStructure(rawStudent);
   const reference=rawReference?parseStructure(rawReference):null;
   let alignment=reference?alignCells(reference,student):null;
-  const compatibility=reference?assessCompatibility(reference,student,alignment):{usable:false,reason:'正本なし'};
+  const compatibility=reference?assessCompatibility(reference,student,alignment):{usable:false,reason:'原本なし'};
   const warnings=[];
-  if(reference&&!compatibility.usable){warnings.push('正本との適合性が低いため、差分解析を適用していません。'); alignment=null;}
+  if(reference&&!compatibility.usable){warnings.push('原本との適合性が低いため、差分解析を適用していません。'); alignment=null;}
   if(!student.activities.length)warnings.push('認識できる活動見出しがありません。未分類セルを確認してください。');
   const activities=student.activities.map(a=>({...a,inputs:a.inputs.map(s=>({...s,sourceIndices:[...s.sourceIndices]}))}));
   if(alignment)restoreReferenceInputs(student,reference,alignment,activities);
@@ -409,7 +409,7 @@ export function analyzeNotebook(rawStudent, rawReference=null, path='submission.
     }
   }
   const sourceFile=String(path).replace(/\\/g,'/');
-  return {path:sourceFile,name:sourceFile.split('/').pop(),mode:alignment?'正本あり':'正本なし',
+  return {path:sourceFile,name:sourceFile.split('/').pop(),mode:alignment?'原本あり':'原本なし',
     compatibility,warnings,activities,extras,
     missingReference,cellCount:student.rows.length,unmatchedCount:alignment?alignment.unmatchedSub.length:null,
     studentNotebook:rawStudent};
