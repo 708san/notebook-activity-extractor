@@ -14,20 +14,26 @@
   <header class="top"><div class="top-inner"><div class="brand"><strong>Notebook 活動・成果物抽出</strong></div><nav aria-label="案内"><a class="help-link" href="./help.html">使い方・HELP</a></nav></div></header>
   <main class="layout">
     <section class="panel inputs" aria-labelledby="upload-title">
-      <div class="section-heading"><span class="step">01</span><div><h2 id="upload-title">Notebookを読み込む</h2><p>生徒の提出物を選び、必要なら編集前の正本も指定します。</p></div></div>
+      <div class="section-heading"><span class="step">01</span><div><h2 id="upload-title">Notebookを読み込む</h2><p>生徒の提出物を選び、必要なら原本（生徒が編集する前の、該当コマの教材）も指定します。</p></div></div>
       <div class="upload-grid">
         <div class="file-card"><label class="main-label" for="submission">生徒の提出物 <span class="required">必須</span></label>
           <div class="toggle" role="group" aria-label="提出形式"><button id="singleMode" class="on" type="button" aria-pressed="true">単一ファイル</button><button id="folderMode" type="button" aria-pressed="false">フォルダ一括</button></div>
           <input id="submission" type="file" accept=".ipynb,application/x-ipynb+json">
           <input id="folderInput" type="file" webkitdirectory multiple hidden>
           <p class="helper" id="submissionHint">.ipynbを1件選択してください。</p></div>
-        <div class="file-card"><label class="main-label" for="reference">編集前の正本 <span class="optional">任意</span></label>
+        <div class="file-card"><label class="main-label" for="reference">原本 <span class="optional">任意</span></label>
           <input id="reference" type="file" accept=".ipynb,application/x-ipynb+json">
           <p class="helper">登録すると変更・追加・削除セルも照合します。未登録なら活動構造から抽出します。</p></div>
       </div>
       <p class="privacy-note">選択したファイルは、このページのJavaScriptが利用者の端末上で処理します。ファイル内容を外部サーバーへ送信する機能はありません。なお、ページ表示に必要なファイルはGitHub Pagesから取得します。</p>
-      <details class="quick-help"><summary>操作手順を確認する</summary><ol><li>提出物を1件、または提出フォルダごと選択します。</li><li>正本がある場合は「編集前の正本」に指定します（任意）。</li><li>「活動・成果物を抽出する」を押します。</li><li>ファイル別・活動別に結果を確認し、整理済みNotebookを保存します。フォルダの場合は階層を保ったZIPになります。</li></ol><a href="./help.html">詳しい使い方・エラー時の対処</a></details>
-      <div class="actionbar"><p class="helper">元のファイル名・フォルダ階層を保持し、各ファイルに「_整理済み」を付けて出力します。</p><button type="button" id="run" class="primary">活動・成果物を抽出する <span aria-hidden="true">→</span></button></div>
+      <details class="quick-help"><summary>操作手順を確認する</summary><ol><li>提出物を1件、または提出フォルダごと選択します。</li><li>原本がある場合は「編集前の原本」に指定します（任意）。</li><li>「活動・成果物を抽出する」を押します。</li><li>ファイル別・活動別に結果を確認し、整理済みNotebookを保存します。フォルダの場合は階層を保ったZIPになります。</li></ol><a href="./help.html">詳しい使い方・エラー時の対処</a></details>
+      <div class="filename-settings">
+        <label class="main-label" for="outputSuffix">出力ファイル名に追加する文字（任意）</label>
+        <input id="outputSuffix" type="text" maxlength="80" placeholder="organized" autocomplete="off" spellcheck="false">
+        <p class="helper">空欄なら「_organized」を付けます。入力した文字は「_」の後に追加します。</p>
+        <p class="helper" id="filenamePreview" role="status" aria-live="polite">出力名の例：第2章第6回_organized.ipynb</p>
+      </div>
+      <div class="actionbar"><p class="helper">元のファイル名・フォルダ階層を保持して出力します。</p><button type="button" id="run" class="primary">活動・成果物を抽出する <span aria-hidden="true">→</span></button></div>
       <p id="progress" class="progress" role="status" aria-live="polite"></p>
     </section>
     <section id="results" class="panel results" hidden aria-labelledby="result-title">
