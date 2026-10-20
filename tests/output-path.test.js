@@ -29,22 +29,22 @@ const zipNames=bytes=>{
  return names;
 };
 test('original names and Japanese directory segments retained',()=>{
- assert.equal(organizedNotebookPath('007_授業.ipynb'),'007_授業_整理済み.ipynb');
- assert.equal(organizedNotebookPath('提出物/001/演習.IPYNB'),'提出物/001/演習_整理済み.IPYNB');
+ assert.equal(organizedNotebookPath('007_授業.ipynb'),'007_授業_organized.ipynb');
+ assert.equal(organizedNotebookPath('提出物/001/演習.IPYNB'),'提出物/001/演習_organized.IPYNB');
 });
 test('folder ZIP keeps root and nested directories, including repeated basenames',()=>{
  const download=buildDownload([result('提出物/001/演習.ipynb'),result('提出物/002/演習.ipynb')],'folder');
- assert.equal(download.name,'整理済みNotebook一式.zip');
- assert.deepEqual(zipNames(download.data),['提出物/001/演習_整理済み.ipynb','提出物/002/演習_整理済み.ipynb']);
+ assert.equal(download.name,'organized_notebooks.zip');
+ assert.deepEqual(zipNames(download.data),['提出物/001/演習_organized.ipynb','提出物/002/演習_organized.ipynb']);
 });
 test('one file in folder mode still returns ZIP',()=>{
  const download=buildDownload([result('提出物/001/演習.ipynb')],'folder');
  assert.equal(download.type,'application/zip');
- assert.deepEqual(zipNames(download.data),['提出物/001/演習_整理済み.ipynb']);
+ assert.deepEqual(zipNames(download.data),['提出物/001/演習_organized.ipynb']);
 });
 test('single file keeps original stem and embeds original path metadata',()=>{
  const download=buildDownload([result('007_授業.ipynb')],'single');
- assert.equal(download.name,'007_授業_整理済み.ipynb');
+ assert.equal(download.name,'007_授業_organized.ipynb');
  const output=JSON.parse(download.data);
  assert.equal(output.metadata.activity_extractor.source_path,'007_授業.ipynb');
  assert(output.cells.some(x=>x.cell_type==='code'));
