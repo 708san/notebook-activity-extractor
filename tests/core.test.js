@@ -28,7 +28,7 @@ realTest('actual rule notebook can parse without crashes',()=>{
 });
 realTest('baseline absent: activities and blank templates without false modified claim',()=>{
   const result=analyzeNotebook(base,null,'submission.ipynb');
-  assert.equal(result.mode,'正本なし');
+  assert.equal(result.mode,'原本なし');
   assert.equal(result.activities.find(a=>a.id==='2-1').inputs[0].status,'回答未検出');
   assert.equal(result.activities.find(a=>a.id==='4-6').inputs[1].status,'記入候補');
 });
@@ -38,7 +38,7 @@ realTest('baseline present: changed cell, inserted code, moved cell, unchanged i
   student.cells.splice(72,0,{cell_type:'code',id:'new-code-one',source:'print("test")',metadata:{},execution_count:null,outputs:[]});
   const moved=student.cells.splice(20,1)[0];student.cells.splice(23,0,moved);
   const result=analyzeNotebook(student,base,'01_submission.ipynb');
-  assert.equal(result.mode,'正本あり');
+  assert.equal(result.mode,'原本あり');
   assert.equal(result.activities.find(a=>a.id==='2-1').inputs[0].status,'変更検出');
   const slot=result.activities.find(a=>a.id==='4-2').inputs[0];
   assert(slot.sourceCells.some(c=>c.id==='new-code-one'));
@@ -48,7 +48,7 @@ realTest('all cell IDs changed but stable structure should still match',()=>{
   const student=clone(base);student.cells.forEach((c,i)=>{c.id=`changed-${i}`;});
   student.cells[28].source='誰の課題か：生徒が使う';
   const result=analyzeNotebook(student,base);
-  assert.equal(result.mode,'正本あり');
+  assert.equal(result.mode,'原本あり');
   assert.equal(result.activities.find(a=>a.id==='2-1').inputs[0].status,'変更検出');
 });
 realTest('deleted heading can recover original activity with baseline',()=>{
@@ -62,7 +62,7 @@ realTest('rejects a different lesson as incompatible reference',()=>{
   const other=clone(base);
   other.cells.forEach((c,i)=>{c.id=`other-${i}`;c.source=i===0?'# unrelated':`### random-${i}\ncompletely different content ${i}`;});
   const result=analyzeNotebook(other,base);
-  assert.equal(result.mode,'正本なし');
+  assert.equal(result.mode,'原本なし');
   assert(result.warnings.some(w=>w.includes('適合性')));
 });
 realTest('saved execution outputs kept in report, no auto execute',()=>{
@@ -101,7 +101,7 @@ realTest('same section numbers but different lessons are not equivalent',()=>{
  const h=text(c).match(/^(### \d+-\d+\. (?:復習|導入|解説|確認|実行|ワーク|共有)：)/);
  c.source=h ? `${h[1]}完全に別の学習目的 ${i}` : `これは別の教材独自の内容 ${i}`;});
  const r=analyzeNotebook(other,source);
- assert.equal(r.mode,'正本なし');
+ assert.equal(r.mode,'原本なし');
 });
 realTest('untrusted markdown is fenced in generated report',()=>{
  const student=clone(base);student.cells[28].source='<script>alert("example")</script>\n誰の課題か：生徒';
