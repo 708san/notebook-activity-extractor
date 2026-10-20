@@ -1,5 +1,5 @@
 import {validateNotebook, analyzeNotebook} from './core.js';
-import {buildDownload} from './export.js';
+import {buildDownload, organizedNotebookPath} from './export.js';
 const $=id=>document.getElementById(id);
 let uploadMode='single', displayMode='student', results=[];
 const MAX_FILE=35*1024*1024, MAX_TOTAL=160*1024*1024, MAX_COUNT=200;
@@ -16,6 +16,22 @@ function filesToProcess(){const list=[...$(uploadMode==='single'?'submission':'f
 async function loadFile(file){if(file.size>MAX_FILE)throw Error('ファイルが35MBの上限を超えています');
  try {return validateNotebook(JSON.parse(await file.text()));}catch(e){throw Error(e instanceof SyntaxError?'NotebookのJSONを読めませんでした':e.message);}}
 const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
+function updateFilenamePreview(){
+  const display=$('filenamePreview');
+  const files=filesToProcess();
+  const example=files[0]?.webkitRelativePath || files[0]?.name || '第2章第6回.ipynb';
+  try{
+    const path=organizedNotebookPath(example, $('outputSuffix').value);
+    display.textContent='出力名の例：'+path+(uploadMode==='folder'?'（ZIP内）':'');
+    display.classList.remove('error');
+  }catch(e){display.textContent=e.message;display.classList.add('error');}
+}
+$('outputSuffix').addEventListener('input',updateFilenamePreview);
+$('submission').addEventListener('change',updateFilenamePreview);
+$('folderInput').addEventListener('change',updateFilenamePreview);
+$('singleMode').addEventListener('click',updateFilenamePreview);
+$('folderMode').addEventListener('click',updateFilenamePreview);
+updateFilenamePreview();
 $('run').addEventListener('click',async()=>{
  const files=filesToProcess();
  if(!files.length){status('提出Notebook（.ipynb）を選択してください。',true);return;}
@@ -23,7 +39,7 @@ $('run').addEventListener('click',async()=>{
  $('run').disabled=true;results=[];$('results').hidden=true;const errors=[];const referenceFile=$('reference').files[0];
  let reference=null;
  try{
-   if(referenceFile){status('正本を解析中…');reference=await loadFile(referenceFile);}
+   if(referenceFile){status('原本を解析中…');reference=await loadFile(referenceFile);}
    for(const [index,file] of files.entries()){
      status(`${index+1}/${files.length}件を解析中：${file.name}`);await nextFrame();
      try{const notebook=await loadFile(file);const path=file.webkitRelativePath||file.name;
@@ -141,8 +157,8 @@ function showActivity(parent,r,a,includeExtras=false){const block=add(parent,el(
 }
 function addMissingReference(parent,items){
  if(!items?.length)return;
- const d=add(parent,el('details'));add(d,el('summary','',`正本側の削除・対応不明セル ${items.length}件（確認）`));
- for(const x of items){const row=add(d,el('div','extra'));add(row,el('p','',`正本セル ${x.index+1} / 活動 ${x.activityId||'未分類'} / ${x.kind}`));
+ const d=add(parent,el('details'));add(d,el('summary','',`原本側の削除・対応不明セル ${items.length}件（確認）`));
+ for(const x of items){const row=add(d,el('div','extra'));add(row,el('p','',`原本セル ${x.index+1} / 活動 ${x.activityId||'未分類'} / ${x.kind}`));
  if(x.preview)add(row,el('pre','cell-source',x.preview));}
 }
 function studentCard(root,r){const card=add(root,el('section','card'));const header=add(card,el('div','card-header'));const namebox=add(header,el('div'));
@@ -177,7 +193,7 @@ function downloadBytes(bytes,name,type){const blob=new Blob([bytes],{type});cons
 $('download').addEventListener('click',()=>{
  if(!results.length)return;
  try{
-  const {name,type,data}=buildDownload(results,uploadMode);
+  const {name,type,data}=buildDownload(results,uploadMode,$('outputSuffix').value);
   downloadBytes(data,name,type);
  }catch(e){status('出力に失敗しました：'+e.message,true);}
 });
