@@ -1,0 +1,26 @@
+@font-face{font-family:BIZUD;src:url('./vendor/BIZUDPGothic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:BIZUD;src:url('./vendor/BIZUDPGothic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+@font-face{font-family:BIZUDCode;src:url('./vendor/BIZUDGothic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+:root{--accent:#315f9d;--ink:#24364b;--muted:#526477}
+body{font-family:BIZUD,"BIZ UDPGothic","Hiragino Sans",sans-serif;color:#24364b;background:#f5f7fa;line-height:1.75}
+button,input,select{font:inherit}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #315f9d;outline-offset:3px}
+[hidden]{display:none!important}
+.top{background:#fff;border-bottom:1px solid #dbe3ed}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand strong{color:#24364b}.brand-sub{font-size:.82rem;color:#526477}
+.panel{border:1px solid #dbe3ed;box-shadow:none}
+.primary,.toggle .on{background:#315f9d;color:white}
+.primary:hover{background:#234a80}
+.mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
+.mode-choice{display:flex;flex-direction:column;text-align:left;padding:18px;border:1px solid #ccd7e4;border-radius:10px;background:white;color:#24364b;cursor:pointer;gap:4px}
+.mode-choice span,.format-options small{font-size:.85rem;color:#526477;display:block}
+.mode-choice.on{background:#edf4fd;border:2px solid #315f9d;padding:17px}
+.format-options{margin:12px 0;padding:12px;border:1px solid #ccd7e4;border-radius:10px}
+.format-options legend{font-weight:700;padding:0 6px}
+.format-options label{display:flex;align-items:flex-start;gap:12px;padding:12px;cursor:pointer}
+.format-options input{width:20px;height:20px;accent-color:#315f9d;flex-shrink:0}
+.export-entry{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid #dbe3ed;padding:10px 0;overflow-wrap:anywhere}
+.cell-source,.cell-output,code,pre{font-family:BIZUDCode,"BIZ UDGothic",monospace;line-height:1.65}
+@media(max-width:600px){.mode-grid{grid-template-columns:1fr}.brand-sub{display:none}.format-options label{padding:8px 4px}.export-entry .secondary{width:100%}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
