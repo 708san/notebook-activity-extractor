@@ -40,7 +40,7 @@ try{
  await page.getByRole('button',{name:'ダウンロード：exported_notebooks.zip',exact:true}).waitFor({timeout:120000});
  event=page.waitForEvent('download');await page.getByRole('button',{name:'ダウンロード：exported_notebooks.zip',exact:true}).click();download=await event;
  await download.saveAs(join(dir,'out.zip'));
- execFileSync('unzip',['-o',join(dir,'out.zip'),'-d',dir]);
+ const combinedNames=execFileSync('python3',['-c','import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); print("\\n".join(z.namelist())); z.extractall(sys.argv[2])',join(dir,'out.zip'),dir],{encoding:'utf8'});assert.match(combinedNames,/授業\.txt/);assert.match(combinedNames,/授業\.pdf/);
  const pdf=await readFile(join(dir,'授業.pdf'));assert.equal(pdf.subarray(0,4).toString(),'%PDF');
  const extracted=execFileSync('pdftotext',[join(dir,'授業.pdf'),'-'],{encoding:'utf8'}).replace(/\s/g,'');
  assert.match(extracted,/日本語教材/);assert.match(extracted,/生徒の回答/);assert.match(extracted,/実行成功/);assert.match(extracted,/分類/);
@@ -58,8 +58,8 @@ try{
  await page.locator('#formatTxt').check();await page.locator('#formatPdf').uncheck();await page.locator('#convert').click();
  await page.getByRole('button',{name:'ダウンロード：exported_notebooks.zip',exact:true}).waitFor();
  event=page.waitForEvent('download');await page.getByRole('button',{name:'ダウンロード：exported_notebooks.zip',exact:true}).click();download=await event;
- await download.saveAs(join(dir,'folder.zip'));const names=execFileSync('unzip',['-Z1',join(dir,'folder.zip')],{encoding:'utf8'});
+ await download.saveAs(join(dir,'folder.zip'));const names=execFileSync('python3',['-c','import sys,zipfile; print("\\n".join(zipfile.ZipFile(sys.argv[1]).namelist()))',join(dir,'folder.zip')],{encoding:'utf8'});
  assert.match(names,/提出物\/生徒A\/授業.txt/);assert.match(names,/提出物\/生徒B\/授業.txt/);
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
- console.log('browser smoke: extraction, TXT, PDF, both formats, Japanese extraction, local requests passed');
+ console.log('browser smoke: extraction, TXT, PDF, both formats, Japanese extraction, images, folder hierarchy, local requests passed');
 }finally{await browser?.close();server.kill();await rm(dir,{recursive:true,force:true});}
