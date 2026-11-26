@@ -67,7 +67,7 @@ async function children(nodes,cell){
  const flush=()=>{if(run.some(x=>x.text.trim()))out.push({text:run,margin:[0,0,0,6]});run=[];};
  for(const n of nodes){
   if(n.nodeType===1&&ignored.has(n.tagName)){flush();out.push(notice('動的な埋め込み要素は再現できません'));continue;}
-  if(n.nodeType===1&&blockTags.has(n.tagName)){flush();out.push(...await block(n,cell));}
+  if(n.nodeType===1&&(blockTags.has(n.tagName)||n.hasAttribute('data-math'))){flush();out.push(...await block(n,cell));}
   else run.push(...inline(n));
  }
  flush();return out;
@@ -115,5 +115,5 @@ export async function notebookDefinition(doc){
 }
 export async function notebookToPdf(doc){
  const definition=await notebookDefinition(doc);
- return new Promise((resolve,reject)=>{try{pdfMake.createPdf(definition).getBuffer(bytes=>resolve(new Uint8Array(bytes)));}catch(e){reject(e);}});
+ return new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('PDF生成が制限時間を超えました')),90000);try{pdfMake.createPdf(definition).getBuffer(bytes=>{clearTimeout(timer);resolve(new Uint8Array(bytes));});}catch(e){clearTimeout(timer);reject(e);}});
 }
