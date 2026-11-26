@@ -4,21 +4,24 @@ on:
     branches: [feature/notebook-export-v05]
   pull_request:
     branches: [main]
+concurrency:
+  group: verify-export-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - run: npm install --no-audit --no-fund
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - run: sudo apt-get install -y poppler-utils
       - run: node tests/browser-smoke.mjs
       - name: Commit verified static runtime to development branch
         if: github.event_name == 'push' && github.ref == 'refs/heads/feature/notebook-export-v05'
