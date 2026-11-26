@@ -13,12 +13,17 @@ export function htmlText(s){return cleanText(s.replace(/<\/(?:td|th)>/gi,'\t').r
 export function savedOutputs(cell){
  const items=[];
  for(const o of Array.isArray(cell.outputs)?cell.outputs:[]){
+  if(!o||typeof o!=='object'){items.push({kind:'notice',text:'[不正な保存済み出力]'});continue;}
   if(o.output_type==='stream'){items.push({kind:'text',text:text(o.text)});continue;}
   if(o.output_type==='error'){items.push({kind:'text',text:[o.ename,o.evalue,...(Array.isArray(o.traceback)?o.traceback:[])].filter(Boolean).join('\n').replace(/\x1b\[[0-9;]*m/g,'')});continue;}
   const d=o.data||{};let represented=false;
   for(const mime of ['image/png','image/jpeg','image/gif','image/webp','image/svg+xml'])if(d[mime]){items.push({kind:'image',mime,data:text(d[mime])});represented=true;break;}
   if(d['text/html']){items.push({kind:'html',html:text(d['text/html']),text:text(d['text/plain'])||htmlText(text(d['text/html']))});represented=true;}
+  else if(d['text/markdown']){items.push({kind:'markdown',text:text(d['text/markdown'])});represented=true;}
+  else if(d['text/latex']){items.push({kind:'math',text:text(d['text/latex'])});represented=true;}
   else if(d['text/plain']){items.push({kind:'text',text:text(d['text/plain'])});represented=true;}
+  else if(d['text/csv']){items.push({kind:'text',text:text(d['text/csv'])});represented=true;}
+  else if(d['application/json']!==undefined){items.push({kind:'text',text:JSON.stringify(d['application/json'],null,2)});represented=true;}
   if(!represented)items.push({kind:'notice',text:'[静的に再現できない保存済み出力: '+(Object.keys(d).join(', ')||o.output_type||'不明')+']'});
  }
  return items;
@@ -27,7 +32,7 @@ export function notebookToText(doc){
  return doc.cells.map(c=>{
  const source=sourceText(c);
  const body=c.cell_type==='code'?'[コード]\n'+source:cleanText(source);
- const outputs=savedOutputs(c).map(o=>o.kind==='image'?'[保存済み画像: '+o.mime+']':o.text);
+ const outputs=savedOutputs(c).map(o=>o.kind==='image'?'[保存済み画像: '+o.mime+']':o.kind==='markdown'?cleanText(o.text):o.text);
  return body+(outputs.length?'\n\n[実行結果]\n'+outputs.join('\n\n'):'');
  }).join('\n\n')+'\n';
 }
