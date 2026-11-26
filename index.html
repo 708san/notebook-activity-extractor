@@ -4,44 +4,59 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="生徒のNotebookから活動・成果物を抽出するローカル採点支援ツール">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
-  <title>活動・成果物抽出 | Notebook採点支援</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Notebook Tools | 活動抽出・形式変換</title>
   <link rel="stylesheet" href="./src/style.css">
   <link rel="stylesheet" href="./src/assessment.css">
+  <link rel="stylesheet" href="./src/tools.css">
   <script type="module" src="./src/app.js"></script>
 </head>
 <body>
-  <header class="top"><div class="top-inner"><div class="brand"><strong>Notebook 活動・成果物抽出</strong></div><nav aria-label="案内"><a class="help-link" href="./help.html">使い方・HELP</a></nav></div></header>
+  <header class="top"><div class="top-inner"><div class="brand"><strong>Notebook Tools</strong><span class="brand-sub">活動抽出・形式変換</span></div><nav aria-label="案内"><a class="help-link" href="./help.html">使い方・HELP</a></nav></div></header>
   <main class="layout">
     <section class="panel inputs" aria-labelledby="upload-title">
-      <div class="section-heading"><span class="step">01</span><div><h2 id="upload-title">Notebookを読み込む</h2><p>生徒の提出物を選び、必要なら原本（生徒が編集する前の、該当コマの教材）も指定します。</p></div></div>
+      <div class="section-heading"><span class="step">01</span><div><h2 id="upload-title">Notebookを読み込む</h2><p>Notebookを選択してください。一度読み込めば、活動抽出・形式変換を切り替えられます。</p></div></div>
       <div class="upload-grid">
-        <div class="file-card"><label class="main-label" for="submission">生徒の提出物 <span class="required">必須</span></label>
+        <div class="file-card"><label class="main-label" for="submission">Notebook <span class="required">必須</span></label>
           <div class="toggle" role="group" aria-label="提出形式"><button id="singleMode" class="on" type="button" aria-pressed="true">単一ファイル</button><button id="folderMode" type="button" aria-pressed="false">フォルダ一括</button></div>
           <input id="submission" type="file" accept=".ipynb,application/x-ipynb+json">
           <input id="folderInput" type="file" webkitdirectory multiple hidden>
           <p class="helper" id="submissionHint">.ipynbを1件選択してください。</p></div>
-        <div class="file-card"><label class="main-label" for="reference">原本 <span class="optional">任意</span></label>
-          <input id="reference" type="file" accept=".ipynb,application/x-ipynb+json">
-          <p class="helper">登録すると変更・追加・削除セルも照合します。未登録なら活動構造から抽出します。</p></div>
-      </div>
+        </div>
+      <div class="actionbar"><p class="helper" id="loadedSummary">Notebookを選択してください。</p><button id="load" class="primary" type="button">Notebookを読み込む</button></div>
       <p class="privacy-note">選択したファイルは、このページのJavaScriptが利用者の端末上で処理します。ファイル内容を外部サーバーへ送信する機能はありません。なお、ページ表示に必要なファイルはGitHub Pagesから取得します。</p>
-      <details class="quick-help"><summary>操作手順を確認する</summary><ol><li>提出物を1件、または提出フォルダごと選択します。</li><li>原本がある場合は「原本」に指定します（任意）。</li><li>「活動・成果物を抽出する」を押します。</li><li>ファイル別・活動別に結果を確認し、整理済みNotebookを保存します。フォルダの場合は階層を保ったZIPになります。</li></ol><a href="./help.html">詳しい使い方・エラー時の対処</a></details>
+      </section>
+    <section class="panel tools-panel" id="modePanel" hidden>
+      <div class="section-heading"><span class="step">02</span><div><h2>処理モードを選ぶ</h2><p>同じNotebookを繰り返し使用できます。</p></div></div>
+      <div class="mode-grid" role="group" aria-label="処理モード">
+        <button id="extractMode" class="mode-choice on" type="button" aria-pressed="true"><strong>活動・成果物抽出</strong><span>採点用Notebookを生成</span></button>
+        <button id="exportMode" class="mode-choice" type="button" aria-pressed="false"><strong>エクスポート</strong><span>元の順序でTXT・PDFに変換</span></button>
+      </div>
+      <div id="extractOptions" class="file-card"><label class="main-label" for="reference">原本 <span class="optional">任意</span></label>
+          <input id="reference" type="file" accept=".ipynb,application/x-ipynb+json">
+          <p class="helper">登録すると変更・追加・削除セルも照合します。</p></div>
+      <div id="exportOptions" hidden>
+        <fieldset class="format-options"><legend>出力形式（複数選択可）</legend>
+          <label><input id="formatTxt" type="checkbox" checked><span><strong>テキスト（.txt）</strong><small>メタデータを除去。回答・コード・テキスト出力を保持。</small></span></label>
+          <label><input id="formatPdf" type="checkbox" checked><span><strong>PDF（.pdf）</strong><small>UDフォントで組版。回答・コード・画像・表・保存済み出力を保持。</small></span></label>
+        </fieldset>
+        <p class="helper">解答例・ヒントを含め、保存された内容を原則すべて出力します。外部画像や動的出力は再現できない場合があります。</p>
+      </div>
       <div class="filename-settings">
         <label class="main-label" for="outputSuffix">出力ファイル名に追加する文字（任意）</label>
         <input id="outputSuffix" type="text" maxlength="80" placeholder="organized" autocomplete="off" spellcheck="false">
-        <p class="helper">空欄なら「_organized」を付けます。入力した文字は「_」の後に追加します。</p>
+        <p class="helper">空欄の場合、活動抽出は「_organized」、形式変換は元の名前を使用します。</p>
         <p class="helper" id="filenamePreview" role="status" aria-live="polite">出力名の例：第2章第6回_organized.ipynb</p>
       </div>
-      <div class="actionbar"><p class="helper">元のファイル名・フォルダ階層を保持して出力します。</p><button type="button" id="run" class="primary">活動・成果物を抽出する <span aria-hidden="true">→</span></button></div>
+      <div class="actionbar"><p class="helper">元のファイル名・フォルダ階層を保持して出力します。</p><button type="button" id="run" class="primary">活動・成果物を抽出する</button><button type="button" id="convert" class="primary" hidden>エクスポート</button></div>
       <p id="progress" class="progress" role="status" aria-live="polite"></p>
     </section>
     <section id="results" class="panel results" hidden aria-labelledby="result-title">
-      <div class="section-heading result-heading"><span class="step">02</span><div><h2 id="result-title">抽出結果</h2><p id="summary"></p></div><button id="download" class="secondary" type="button">整理済みNotebookをダウンロード</button></div>
+      <div class="section-heading result-heading"><span class="step">03</span><div><h2 id="result-title">抽出結果</h2><p id="summary"></p></div><button id="download" class="secondary" type="button">整理済みNotebookをダウンロード</button></div>
       <div class="toolbar"><div class="toggle" role="group" aria-label="結果の表示方法"><button id="byStudent" class="on" type="button" aria-pressed="true">ファイル別</button><button id="byActivity" type="button" aria-pressed="false">活動別</button></div><label class="filter" for="search">検索 <input id="search" type="search" placeholder="ファイル名・パス・活動名・回答内容"></label></div>
       <div id="alerts" class="alerts"></div><div id="resultList" class="result-list"></div>
     </section>
-    <footer><p>活動の分類結果は採点前に確認してください。<a href="./help.html">使い方・HELP</a> · <a href="./docs/SPEC.md" target="_blank" rel="noopener">仕様書</a></p></footer>
+    <section id="exportResults" class="panel" hidden aria-live="polite"></section><footer><p>活動の分類結果は採点前に確認してください。<a href="./help.html">使い方・HELP</a> · <a href="./docs/SPEC.md" target="_blank" rel="noopener">仕様書</a></p></footer>
   </main>
 </body>
 </html>
