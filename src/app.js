@@ -10,6 +10,7 @@ function status(text,error=false){$('progress').textContent=text;$('progress').c
 function modeChange(mode){if(processing)return;uploadMode=mode;invalidateLoaded();for(const [id,on] of [['singleMode',mode==='single'],['folderMode',mode==='folder']]){
   $(id).classList.toggle('on',on);$(id).setAttribute('aria-pressed',String(on));
 } $('submission').hidden=mode!=='single';$('folderInput').hidden=mode!=='folder';
+document.querySelector('label[for="submission"],label[for="folderInput"]').htmlFor=mode==='single'?'submission':'folderInput';
 $('submissionHint').textContent=mode==='single'?' .ipynbを1件選択してください。':'フォルダ以下にある.ipynbを再帰的に読み込みます。';}
 $('singleMode').addEventListener('click',()=>modeChange('single'));
 $('folderMode').addEventListener('click',()=>modeChange('folder'));
@@ -28,13 +29,14 @@ function updateFilenamePreview(){
     display.classList.remove('error');
   }catch(e){display.textContent=e.message;display.classList.add('error');}
 }
-$('outputSuffix').addEventListener('input',updateFilenamePreview);
+$('outputSuffix').addEventListener('input',()=>{updateFilenamePreview();clearExportResults();});
 $('submission').addEventListener('change',updateFilenamePreview);
 $('folderInput').addEventListener('change',updateFilenamePreview);
 $('singleMode').addEventListener('click',updateFilenamePreview);
 $('folderMode').addEventListener('click',updateFilenamePreview);
 function selectedFormats(){return ['txt','pdf'].filter(ext=>$('format'+(ext==='txt'?'Txt':'Pdf')).checked);}
-function invalidateLoaded(){loaded=[];results=[];$('modePanel').hidden=true;$('results').hidden=true;$('exportResults').hidden=true;$('loadedSummary').textContent='Notebookを読み込んでください。';}
+function clearExportResults(){$('exportResults').replaceChildren();$('exportResults').hidden=true;}
+function invalidateLoaded(){loaded=[];results=[];$('modePanel').hidden=true;$('results').hidden=true;clearExportResults();status('');$('loadedSummary').textContent='Notebookを読み込んでください。';}
 for(const id of ['submission','folderInput'])$(id).addEventListener('change',invalidateLoaded);
 function setBusy(value){
  processing=value;
@@ -52,7 +54,7 @@ function selectMode(mode){
 }
 $('extractMode').addEventListener('click',()=>selectMode('extract'));
 $('exportMode').addEventListener('click',()=>selectMode('export'));
-for(const id of ['formatTxt','formatPdf'])$(id).addEventListener('change',()=>{$('convert').disabled=!selectedFormats().length;updateFilenamePreview();});
+for(const id of ['formatTxt','formatPdf'])$(id).addEventListener('change',()=>{$('convert').disabled=!selectedFormats().length;updateFilenamePreview();clearExportResults();});
 $('load').addEventListener('click',async()=>{
  const files=filesToProcess();invalidateLoaded();if(!files.length){$('loadedSummary').textContent='提出Notebook（.ipynb）を選択してください。';return;}
  if(files.length>MAX_COUNT||files.reduce((s,f)=>s+f.size,0)>MAX_TOTAL){$('loadedSummary').textContent='200件または合計160MBの上限を超えています。';return;}
@@ -93,6 +95,8 @@ $('convert').addEventListener('click',async()=>{
    const button=add($('exportResults'),el('button','primary','ダウンロード：'+output.name));button.type='button';button.addEventListener('click',()=>downloadBytes(output.data,output.name,output.type));
    for(const entry of entries){
     const row=add($('exportResults'),el('div','export-entry'));add(row,el('span','',entry.name));
+    if(entry.type==='application/pdf'){const preview=add(row,el('button','secondary','PDFをプレビュー'));preview.type='button';preview.addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([entry.data],{type:entry.type}));const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener noreferrer';link.click();setTimeout(()=>URL.revokeObjectURL(url),300000);});}
+    else {const detail=add(row,el('details','txt-preview'));add(detail,el('summary','','TXTプレビュー'));add(detail,el('pre','cell-source',entry.data.length>50000?entry.data.slice(0,50000)+'\n（プレビューは先頭50,000文字。ダウンロードには全文を含みます）':entry.data));}
     const one=add(row,el('button','secondary','個別ダウンロード'));one.type='button';one.addEventListener('click',()=>downloadBytes(entry.data,entry.name.split('/').pop(),entry.type));
    }
    status('変換が完了しました。'+(errors.length?' 一部失敗があります。':''));
