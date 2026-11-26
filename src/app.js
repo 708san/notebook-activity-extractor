@@ -1,14 +1,16 @@
 import {validateNotebook, analyzeNotebook} from './core.js';
 import {buildDownload, organizedNotebookPath} from './export.js';
+import {notebookToText,exportPath,packExports} from './format-export.js';
 const $=id=>document.getElementById(id);
-let uploadMode='single', displayMode='student', results=[];
+let uploadMode='single', displayMode='student', results=[], loaded=[], loadedMode='single', processing=false, activeMode='extract';
 const MAX_FILE=35*1024*1024, MAX_TOTAL=160*1024*1024, MAX_COUNT=200;
 function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=String(text);return n;}
 function add(parent,child){parent.appendChild(child);return child;}
 function status(text,error=false){$('progress').textContent=text;$('progress').classList.toggle('error',error);}
-function modeChange(mode){uploadMode=mode;for(const [id,on] of [['singleMode',mode==='single'],['folderMode',mode==='folder']]){
+function modeChange(mode){if(processing)return;uploadMode=mode;invalidateLoaded();for(const [id,on] of [['singleMode',mode==='single'],['folderMode',mode==='folder']]){
   $(id).classList.toggle('on',on);$(id).setAttribute('aria-pressed',String(on));
 } $('submission').hidden=mode!=='single';$('folderInput').hidden=mode!=='folder';
+document.querySelector('label[for="submission"],label[for="folderInput"]').htmlFor=mode==='single'?'submission':'folderInput';
 $('submissionHint').textContent=mode==='single'?' .ipynbを1件選択してください。':'フォルダ以下にある.ipynbを再帰的に読み込みます。';}
 $('singleMode').addEventListener('click',()=>modeChange('single'));
 $('folderMode').addEventListener('click',()=>modeChange('folder'));
@@ -21,30 +23,100 @@ function updateFilenamePreview(){
   const files=filesToProcess();
   const example=files[0]?.webkitRelativePath || files[0]?.name || '第2章第6回.ipynb';
   try{
-    const path=organizedNotebookPath(example, $('outputSuffix').value);
+    const formats=selectedFormats();
+    const path=activeMode==='extract'?organizedNotebookPath(example,$('outputSuffix').value):formats.map(ext=>exportPath(example,ext,$('outputSuffix').value)).join(' / ')||'出力形式を選択してください';
     display.textContent='出力名の例：'+path+(uploadMode==='folder'?'（ZIP内）':'');
     display.classList.remove('error');
   }catch(e){display.textContent=e.message;display.classList.add('error');}
 }
-$('outputSuffix').addEventListener('input',updateFilenamePreview);
+$('outputSuffix').addEventListener('input',()=>{updateFilenamePreview();clearExportResults();});
 $('submission').addEventListener('change',updateFilenamePreview);
 $('folderInput').addEventListener('change',updateFilenamePreview);
 $('singleMode').addEventListener('click',updateFilenamePreview);
 $('folderMode').addEventListener('click',updateFilenamePreview);
+function selectedFormats(){return ['txt','pdf'].filter(ext=>$('format'+(ext==='txt'?'Txt':'Pdf')).checked);}
+function clearExportResults(){$('exportResults').replaceChildren();$('exportResults').hidden=true;}
+function invalidateLoaded(){loaded=[];results=[];$('modePanel').hidden=true;$('results').hidden=true;clearExportResults();status('');$('loadedSummary').textContent='Notebookを読み込んでください。';}
+for(const id of ['submission','folderInput'])$(id).addEventListener('change',invalidateLoaded);
+function setBusy(value){
+ processing=value;
+ for(const id of ['load','singleMode','folderMode','submission','folderInput','extractMode','exportMode','reference','run','convert','formatTxt','formatPdf','outputSuffix','download'])$(id).disabled=value;
+ if(!value)$('convert').disabled=!selectedFormats().length;
+}
+function selectMode(mode){
+ if(processing)return;activeMode=mode;
+ $('extractMode').classList.toggle('on',mode==='extract');$('exportMode').classList.toggle('on',mode==='export');
+ $('extractMode').setAttribute('aria-pressed',String(mode==='extract'));$('exportMode').setAttribute('aria-pressed',String(mode==='export'));
+ $('extractOptions').hidden=mode!=='extract';$('exportOptions').hidden=mode!=='export';
+ $('run').hidden=mode!=='extract';$('convert').hidden=mode!=='export';
+ $('results').hidden=mode!=='extract'||!results.length;$('exportResults').hidden=mode!=='export'||!$('exportResults').childNodes.length;
+ $('outputSuffix').placeholder=mode==='extract'?'organized':'追加文字なし';updateFilenamePreview();
+}
+$('extractMode').addEventListener('click',()=>selectMode('extract'));
+$('exportMode').addEventListener('click',()=>selectMode('export'));
+for(const id of ['formatTxt','formatPdf'])$(id).addEventListener('change',()=>{$('convert').disabled=!selectedFormats().length;updateFilenamePreview();clearExportResults();});
+$('load').addEventListener('click',async()=>{
+ const files=filesToProcess();invalidateLoaded();if(!files.length){$('loadedSummary').textContent='提出Notebook（.ipynb）を選択してください。';return;}
+ if(files.length>MAX_COUNT||files.reduce((s,f)=>s+f.size,0)>MAX_TOTAL){$('loadedSummary').textContent='200件または合計160MBの上限を超えています。';return;}
+ setBusy(true);const errors=[];
+ try{
+  for(const [i,file] of files.entries()){
+   const path=file.webkitRelativePath||file.name;$('loadedSummary').textContent=(i+1)+'/'+files.length+'件を読み込み中：'+file.name;await nextFrame();
+   try{loaded.push({path,notebook:await loadFile(file)});}catch(e){errors.push(path+'：'+e.message);}
+  }
+  loadedMode=uploadMode;
+  $('loadedSummary').textContent=loaded.length+'件のNotebookを読み込みました。'+(errors.length?' 失敗：'+errors.join(' / '):'');
+  $('modePanel').hidden=!loaded.length;if(loaded.length)selectMode(activeMode);
+ }finally{setBusy(false);if(loaded.length)selectMode(activeMode);}
+});
+$('convert').addEventListener('click',async()=>{
+ if(processing||!loaded.length)return;const formats=selectedFormats();if(!formats.length)return;
+ const suffix=$('outputSuffix').value;const entries=[],errors=[];setBusy(true);
+ $('exportResults').hidden=false;$('exportResults').replaceChildren();
+ try{
+  let pdfModule=null;
+  if(formats.includes('pdf'))try{pdfModule=await import('./pdf-export.js');}catch(e){errors.push('PDF生成モジュールを読み込めません：'+e.message);}
+  for(const [i,item] of loaded.entries()){
+   status((i+1)+'/'+loaded.length+'件を変換中：'+item.path);await nextFrame();
+   for(const ext of formats){
+    if(ext==='pdf'&&!pdfModule)continue;
+    try{
+     const name=exportPath(item.path,ext,suffix);
+     const data=ext==='txt'?notebookToText(item.notebook):await pdfModule.notebookToPdf(item.notebook);
+     entries.push({name,type:ext==='txt'?'text/plain;charset=utf-8':'application/pdf',data});
+    }catch(e){errors.push(item.path+' ('+ext+')：'+e.message);}
+   }
+  }
+  add($('exportResults'),el('h2','','エクスポート結果'));
+  add($('exportResults'),el('p','helper',entries.length+'件のファイルを生成しました。'));
+  for(const e of errors)add($('exportResults'),el('p','alert',e));
+  if(entries.length){
+   const output=packExports(entries,loadedMode);
+   const button=add($('exportResults'),el('button','primary','ダウンロード：'+output.name));button.type='button';button.addEventListener('click',()=>downloadBytes(output.data,output.name,output.type));
+   for(const entry of entries){
+    const row=add($('exportResults'),el('div','export-entry'));add(row,el('span','',entry.name));
+    if(entry.type==='application/pdf'){const preview=add(row,el('button','secondary','PDFをプレビュー'));preview.type='button';preview.addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([entry.data],{type:entry.type}));const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener noreferrer';link.click();setTimeout(()=>URL.revokeObjectURL(url),300000);});}
+    else {const detail=add(row,el('details','txt-preview'));add(detail,el('summary','','TXTプレビュー'));add(detail,el('pre','cell-source',entry.data.length>50000?entry.data.slice(0,50000)+'\n（プレビューは先頭50,000文字。ダウンロードには全文を含みます）':entry.data));}
+    const one=add(row,el('button','secondary','個別ダウンロード'));one.type='button';one.addEventListener('click',()=>downloadBytes(entry.data,entry.name.split('/').pop(),entry.type));
+   }
+   status('変換が完了しました。'+(errors.length?' 一部失敗があります。':''));
+  }else status('変換できるファイルがありません。',true);
+ }catch(e){status('変換エラー：'+e.message,true);add($('exportResults'),el('p','alert',e.message));}
+ finally{setBusy(false);}
+});
 updateFilenamePreview();
 $('run').addEventListener('click',async()=>{
- const files=filesToProcess();
- if(!files.length){status('提出Notebook（.ipynb）を選択してください。',true);return;}
- if(files.length>MAX_COUNT||files.reduce((s,f)=>s+f.size,0)>MAX_TOTAL){status('200件または合計160MBの上限を超えています。',true);return;}
- $('run').disabled=true;results=[];$('results').hidden=true;const errors=[];const referenceFile=$('reference').files[0];
+ const files=loaded;
+ if(!files.length){status('Notebookを読み込んでください。',true);return;}
+ setBusy(true);results=[];$('results').hidden=true;const errors=[];const referenceFile=$('reference').files[0];
  let reference=null;
  try{
    if(referenceFile){status('原本を解析中…');reference=await loadFile(referenceFile);}
    for(const [index,file] of files.entries()){
-     status(`${index+1}/${files.length}件を解析中：${file.name}`);await nextFrame();
-     try{const notebook=await loadFile(file);const path=file.webkitRelativePath||file.name;
+     status(`${index+1}/${files.length}件を解析中：${file.path}`);await nextFrame();
+     try{const {notebook,path}=file;
        const report=analyzeNotebook(notebook,reference,path);results.push(report);
-     }catch(e){errors.push(`${file.webkitRelativePath||file.name}：${e.message}`);}
+     }catch(e){errors.push(`${file.path}：${e.message}`);}
    }
    if(!results.length){status('有効なNotebookがありません。'+errors.join(' / '),true);return;}
    $('results').hidden=false;
@@ -53,7 +125,7 @@ $('run').addEventListener('click',async()=>{
    for(const r of results)for(const message of r.warnings)add($('alerts'),el('p','alert',`${r.path}：${message}`));
    status(`${results.length}件の解析が完了しました。${errors.length?`失敗 ${errors.length}件。`:''}`);render();
  }catch(e){status(`解析エラー：${e.message}`,true);}
- finally{$('run').disabled=false;}
+ finally{setBusy(false);}
 });
 function switchView(v){displayMode=v;for(const [id,on] of [['byStudent',v==='student'],['byActivity',v==='activity']]){
  $(id).classList.toggle('on',on);$(id).setAttribute('aria-pressed',String(on));
@@ -193,7 +265,7 @@ function downloadBytes(bytes,name,type){const blob=new Blob([bytes],{type});cons
 $('download').addEventListener('click',()=>{
  if(!results.length)return;
  try{
-  const {name,type,data}=buildDownload(results,uploadMode,$('outputSuffix').value);
+  const {name,type,data}=buildDownload(results,loadedMode,$('outputSuffix').value);
   downloadBytes(data,name,type);
  }catch(e){status('出力に失敗しました：'+e.message,true);}
 });

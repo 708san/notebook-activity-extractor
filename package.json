@@ -1,10 +1,22 @@
 {
   "name": "notebook-activity-extractor",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "build": "node scripts/build-export.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "pdfmake": "0.2.20",
+    "markdown-it": "14.1.0",
+    "mathjax-full": "3.2.2"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "playwright": "1.51.1"
+  }
 }

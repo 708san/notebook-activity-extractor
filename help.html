@@ -12,6 +12,15 @@
 <body>
   <header class="top"><div class="top-inner"><div class="brand"><strong>Notebook 活動・成果物抽出</strong></div><nav aria-label="案内"><a class="help-link" href="./index.html">ツールに戻る</a></nav></div></header>
   <main class="layout help-main">
+<section class="panel">
+<h2>v0.5｜Notebookの読み込みと形式変換</h2>
+<p>単一ファイルまたはフォルダを選択して「Notebookを読み込む」を押します。読み込み後、活動・成果物抽出またはエクスポートを選択してください。モードを変更しても再読み込みは不要です。</p>
+<h3>エクスポート</h3>
+<p>TXT・PDFのチェックを選択すると、どちらか一方または両方を生成できます。単一Notebookで片方だけ選択した場合は直接ダウンロード、両方またはフォルダの場合はZIPになります。個別のダウンロードも可能です。</p>
+<p>TXTでは元のセル順で本文、コード、保存済み出力を保持し、メタデータや画像のBase64データを除きます。PDFでは日本語UDフォントで本文・コード・表・保存済み画像等を組版します。折りたたみの解答例も含めます。外部画像・動的ウィジェット・未保存出力は再現できない場合があります。Pythonは実行しません。</p>
+<p>活動抽出は従来の機能です。原本は活動抽出モードで指定します。形式変換の出力名は元の拡張子を変更し、任意の追加文字を付けられます。</p>
+</section>
+
     <h1>使い方・HELP</h1>
     <p class="muted">提出Notebookと、必要に応じて原本（生徒が編集する前の、該当コマの教材）を選び、活動ごとの回答・コード・保存済みの実行結果を確認し、採点用の <code>.ipynb</code> を保存します。</p>
     <nav class="help-toc" aria-label="このページの目次">
