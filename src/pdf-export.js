@@ -67,19 +67,22 @@ async function children(nodes,cell){
  const flush=()=>{if(run.some(x=>x.text.trim()))out.push({text:run,margin:[0,0,0,6]});run=[];};
  for(const n of nodes){
   if(n.nodeType===1&&ignored.has(n.tagName)){flush();out.push(notice('動的な埋め込み要素は再現できません'));continue;}
-  if(n.nodeType===1&&(blockTags.has(n.tagName)||n.hasAttribute('data-math'))){flush();out.push(...await block(n,cell));}
+  if(n.nodeType===1&&(blockTags.has(n.tagName)||n.hasAttribute('data-math')||n.localName==='svg')){flush();out.push(...await block(n,cell));}
+  else if(n.nodeType===1&&n.querySelector('img,svg,[data-math]')){flush();out.push(...await children(n.childNodes,cell));}
   else run.push(...inline(n));
  }
  flush();return out;
 }
 async function block(n,cell){
  const tag=n.tagName;
+ if(n.localName==='svg'){try{return [await rasterImage('image/svg+xml',new XMLSerializer().serializeToString(n))];}catch(e){return [notice('SVGを再現できません: '+e.message)];}}
  if(tag==='IMG')return [await imageNode(n.getAttribute('src')||'',cell,n.getAttribute('alt')||'')];
  if(tag==='PRE')return [code(n.textContent)];
  if(tag==='HR')return [{canvas:[{type:'line',x1:0,y1:0,x2:480,y2:0,lineWidth:.6,lineColor:palette.line}],margin:[0,4,0,7]}];
  if(/^H[1-6]$/.test(tag))return [{text:inline(n),style:'h'+tag[1],headline:true}];
  if(tag==='TABLE'){
   const rows=[...n.querySelectorAll('tr')];const count=Math.max(0,...rows.map(r=>r.cells.length));if(!count)return [];
+  if(count>12||rows.some(r=>[...r.cells].some(c=>c.colSpan>1||c.rowSpan>1)))return [notice('幅の広い表・結合セルを読みやすい行形式で表示'),...rows.map(r=>plain([...r.cells].map(c=>c.textContent.trim()).join(' ｜ ')))];
   const body=rows.map(r=>Array.from({length:count},(_,i)=>({text:r.cells[i]?inline(r.cells[i]):'',bold:r.cells[i]?.tagName==='TH',fillColor:r.cells[i]?.tagName==='TH'?'#e8eef6':undefined,fontSize:10})));
   const headerRows=rows[0]?.querySelector('th')?1:0;
   return [{table:{headerRows,widths:Array(count).fill('*'),body},layout:'lightHorizontalLines',margin:[0,4,0,9]}];
@@ -108,6 +111,8 @@ export async function notebookDefinition(doc){
   for(const o of outputs){
    if(o.kind==='image'){try{content.push(await rasterImage(o.mime,o.data));}catch(e){content.push(notice('保存済み画像を再現できません: '+e.message));}}
    else if(o.kind==='html'){const nodes=await children(inert(o.html).childNodes,cell);content.push(...(nodes.length?nodes:[plain(o.text)]));}
+   else if(o.kind==='markdown'){content.push(...await renderMarkup(o.text,cell));}
+   else if(o.kind==='math'){try{content.push({svg:mathSvg(o.text.replace(/^\$\$|\$\$/g,'')),fit:[470,120],margin:[0,5,0,5]});}catch{content.push(plain(o.text),notice('数式は原文表示'));}}
    else content.push(o.kind==='notice'?notice(o.text):code(o.text));
   }
  }
